@@ -6,7 +6,10 @@ balloons =
 	
 	ROPE_SEGS: 4,
 	ROPE_LEN: 120, //pixels, from balloon center to basket center
+	BASKET_OFF: 120+10,
 	AIM_SPEED: 2.5,
+	
+	RADIUS: 55,
 	
 	controls:
 	[
@@ -16,6 +19,14 @@ balloons =
 
 balloons.added = function()
 {
+	//Air jet stuff
+	this.tex_airjet = THREE.ImageUtils.loadTexture("media/air_jet.png");
+	this.tex_airjet.wrapT = THREE.RepeatWrapping;
+	this.geo_airjet = bmacSdk.GEO.makeSpriteGeo(16, 32);
+	
+	this.tex_airplume = THREE.ImageUtils.loadTexture("media/air_plume.png");
+	this.geo_airplume = bmacSdk.GEO.makeSpriteGeo(36, 30);
+	
 	this.ROPE_SEG_LEN = (this.ROPE_LEN/this.ROPE_SEGS) / thegame.B2_SCALE;
 	
 	this.tex_base = THREE.ImageUtils.loadTexture("media/balloon_base.png");
@@ -40,9 +51,10 @@ balloons.added = function()
 	this.def_balloon.set_linearDamping(0.65);
 	
 	this.shape_balloon = new Box2D.b2CircleShape();
-	this.shape_balloon.set_m_radius((111/2) / thegame.B2_SCALE);
+	this.shape_balloon.set_m_radius(this.RADIUS / thegame.B2_SCALE);
 	
 	this.fdef_balloon = new Box2D.b2FixtureDef();
+	this.fdef_balloon.set_filter(thegame.filter_all);
 	this.fdef_balloon.set_shape(this.shape_balloon);
 	this.fdef_balloon.set_density(0.8);
 	this.fdef_balloon.set_friction(0.6);
@@ -71,7 +83,7 @@ balloons.added = function()
 	this.shape_ropeseg.SetAsBox((6/2) / thegame.B2_SCALE, this.ROPE_SEG_LEN);
 	
 	this.fdef_ropeseg = new Box2D.b2FixtureDef();
-	this.fdef_ropeseg.set_filter(1);
+	this.fdef_ropeseg.set_filter(thegame.filter_none);
 	this.fdef_ropeseg.set_shape(this.shape_ropeseg);
 	this.fdef_ropeseg.set_density(1);
 	
@@ -93,6 +105,24 @@ balloons.update = function()
 	{
 		this.list[i].update();
 	}
+	
+	this.tex_airjet.offset.set(0, this.tex_airjet.offset.y + bmacSdk.deltaSec*AirJet.SCROLL_SPEED);
+};
+
+balloons.onBeginContact = function(contact)
+{
+	for (var i = 0; i < this.list.length; i++)
+	{
+		this.list[i].onBeginContact(contact);
+	}
+};
+
+balloons.onEndContact = function(contact)
+{
+	for (var i = 0; i < this.list.length; i++)
+	{
+		this.list[i].onEndContact(contact);
+	}
 };
 
 GameEngine.addObject(balloons);
@@ -106,17 +136,21 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 	this.playerIndex = playerIndex;
 	this.controlIndex = controlIndex;
 	
+	//damage
+	this.airjets = [];
+	this.impactCooldown = 0;
+	
 	//aiming
 	this.aimTarget = new THREE.Quaternion();
 	this.aimTarget.setFromAxisAngle(thegame.Z_AXIS, 0);
 	
 	if (this.playerIndex === undefined)
-		var spawnX = this.spawnX = (GameEngine.screenWidth-300)/thegame.B2_SCALE;
+		this.spawnX = (GameEngine.screenWidth-300)/thegame.B2_SCALE;
 	else if (this.index == 0)
-		var spawnX = this.spawnX = 100/thegame.B2_SCALE;
+		this.spawnX = 100/thegame.B2_SCALE;
 	else
-		var spawnX = this.spawnX = (GameEngine.screenWidth-100)/thegame.B2_SCALE;
-	var spawnY = this.spawnY = (GameEngine.screenHeight/2 - balloons.ROPE_LEN/2)/thegame.B2_SCALE;
+		this.spawnX = (GameEngine.screenWidth-100)/thegame.B2_SCALE;
+	this.spawnY = (GameEngine.screenHeight/2 - balloons.ROPE_LEN/2)/thegame.B2_SCALE;
 	
 	var material = new THREE.MeshBasicMaterial(
 	{
@@ -126,6 +160,7 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 	this.mesh_base = new THREE.Mesh(balloons.geo_balloon, material);
 	GameEngine.scene.add(this.mesh_base);
 	
+	//balloon deco
 	this.mesh_extra = bmacSdk.GEO.makeSpriteMesh(balloons.tex_extra, balloons.geo_balloon);
 	this.mesh_base.add(this.mesh_extra);
 	this.mesh_extra.position.set(0, 0, 1);
@@ -133,6 +168,7 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 	this.mesh_basket = bmacSdk.GEO.makeSpriteMesh(balloons.tex_basket, balloons.geo_basket);
 	GameEngine.scene.add(this.mesh_basket);
 	
+	//create launcher assets
 	if (this.playerIndex !== undefined)
 	{
 		this.mesh_launcher = bmacSdk.GEO.makeSpriteMesh(balloons.tex_launcher, balloons.geo_launcher);
@@ -143,35 +179,88 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 	//knots
 	var tempMesh = bmacSdk.GEO.makeSpriteMesh(balloons.tex_knot, balloons.geo_knot);
 	this.mesh_base.add(tempMesh);
-	tempMesh.position.set(-111/2, 0, 5);
+	tempMesh.position.set(-balloons.RADIUS, 0, 5);
 	var tempMesh = bmacSdk.GEO.makeSpriteMesh(balloons.tex_knot, balloons.geo_knot);
 	this.mesh_base.add(tempMesh);
-	tempMesh.position.set(111/2, 0, 5);
+	tempMesh.position.set(balloons.RADIUS, 0, 5);
+	
+	this.ropes = [];
+	this.rebuildBodies();
+	
+	if (this.playerIndex !== undefined)
+	{
+		this.porcupine = new Porcupine(this);
+	}
+}
+
+Balloon.DEPTH = -50;
+Balloon.CONTROL_FORCE = 8.5;
+Balloon.IMPACT_COOLDOWN = 0.5;
+Balloon.BUOY_LOSS_PER_JET = 0.05;
+
+Balloon.prototype.respawn = function()
+{
+	this.rebuildBodies();
+	
+	//clear jets
+	for (var i = 0; i < this.airjets.length; i++)
+		this.airjets[i].destroy();
+	this.airjets.length = 0;
+}
+
+Balloon.prototype.rebuildBodies = function()
+{
+	//destroy old
+	if (this.body_balloon)
+	{
+		thegame.world.DestroyBody(this.body_balloon);
+		this.body_balloon = null;
+	}
+	if (this.body_basket)
+	{
+		thegame.world.DestroyBody(this.body_basket);
+		this.body_basket = null;
+	}
+	if (this.ropes)
+	{
+		for (var i = 0; i < this.ropes.length; i++)
+		{
+			if (this.ropes[i].body)
+			{
+				thegame.world.DestroyBody(this.ropes[i].body);
+				this.ropes[i].body = null;
+			}
+		}
+	}
 	
 	//set up spawn loc
-	balloons.def_balloon.set_position(new Box2D.b2Vec2(spawnX, spawnY));
-	balloons.def_basket.set_position(new Box2D.b2Vec2(spawnX, spawnY + (balloons.ROPE_LEN+10) / thegame.B2_SCALE));
+	balloons.def_balloon.set_position(new Box2D.b2Vec2(this.spawnX, this.spawnY));
+	balloons.def_basket.set_position(new Box2D.b2Vec2(this.spawnX, this.spawnY + balloons.BASKET_OFF / thegame.B2_SCALE));
 	
 	//make b2 body
 	this.body_balloon = thegame.world.CreateBody(balloons.def_balloon);
-	this.body_balloon.CreateFixture(balloons.fdef_balloon);
+	this.fixture_balloon = this.body_balloon.CreateFixture(balloons.fdef_balloon);
+	this.fixture_balloon.balloon = this;
 	
 	//b2 basket
 	this.body_basket = thegame.world.CreateBody(balloons.def_basket);
-	this.body_basket.CreateFixture(balloons.fdef_basket);
+	this.fixture_basket = this.body_basket.CreateFixture(balloons.fdef_basket);
+	this.fixture_basket.basketFor = this;
 	
 	//b2 rope connecting the two
-	this.ropes = [];
 	var ropeAng = Math.PI / 13;
 	var lastBody = [this.body_balloon,this.body_balloon];
 	for (var c = 0; c < balloons.ROPE_SEGS; c++)
 	{
-		var ropeobj = [{},{}];
+		if (!this.ropes[c*2+0]) this.ropes[c*2+0] = {};
+		if (!this.ropes[c*2+1]) this.ropes[c*2+1] = {};
 		for (var d = 0; d < 2; d++)
 		{
+			var ropeobj = this.ropes[c*2+d];
+			
 			var sig = (d*2-1);
-			var x = spawnX+sig*(111/2)/thegame.B2_SCALE;
-			var y = spawnY;
+			var x = this.spawnX+sig*balloons.RADIUS/thegame.B2_SCALE;
+			var y = this.spawnY;
 			var len = c*balloons.ROPE_SEG_LEN;
 			
 			var jy = y + len * Math.cos(ropeAng);
@@ -185,22 +274,23 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 			balloons.def_ropeseg.set_angle(ropeAng*sig);
 			
 			balloons.def_ropeseg.set_position(new Box2D.b2Vec2(x,y));
-			ropeobj[d].body = thegame.world.CreateBody(balloons.def_ropeseg);
-			ropeobj[d].body.CreateFixture(balloons.fdef_ropeseg);
-			
-			this.ropes.push(ropeobj[d]);
+			ropeobj.body = thegame.world.CreateBody(balloons.def_ropeseg);
+			ropeobj.body.CreateFixture(balloons.fdef_ropeseg);
 			
 			//Create joint
 			var jointdef = new Box2D.b2RevoluteJointDef();
 			jointdef.set_collideConnected(false);
-			jointdef.Initialize(lastBody[d], ropeobj[d].body, new Box2D.b2Vec2(jx,jy));
+			jointdef.Initialize(lastBody[d], ropeobj.body, new Box2D.b2Vec2(jx,jy));
 			thegame.world.CreateJoint(jointdef);
 			
 			//Create mesh
-			ropeobj[d].mesh = bmacSdk.GEO.makeSpriteMesh(balloons.tex_rope, balloons.geo_rope);
-			GameEngine.scene.add(ropeobj[d].mesh);
+			if (!ropeobj.mesh)
+			{
+				ropeobj.mesh = bmacSdk.GEO.makeSpriteMesh(balloons.tex_rope, balloons.geo_rope);
+				GameEngine.scene.add(ropeobj.mesh);
+			}
 			
-			lastBody[d] = ropeobj[d].body;
+			lastBody[d] = ropeobj.body;
 		}
 	}
 	
@@ -208,8 +298,8 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 	for (var d = 0; d < 2; d++)
 	{
 		var sig = (d*2-1);
-		var x = spawnX+sig*(111/2)/thegame.B2_SCALE;
-		var y = spawnY;
+		var x = this.spawnX+sig*balloons.RADIUS/thegame.B2_SCALE;
+		var y = this.spawnY;
 		var len = c*balloons.ROPE_SEG_LEN;
 		
 		var jy = y + len * Math.cos(ropeAng);
@@ -223,11 +313,6 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 		thegame.world.CreateJoint(jointdef);
 	}
 	
-	if (this.playerIndex !== undefined)
-	{
-		this.porcupine = new Porcupine(this);
-	}
-	
 	//Calculate mass
 	this.mass = this.body_balloon.GetMass();
 	this.mass += this.body_basket.GetMass();
@@ -235,11 +320,19 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 		this.mass += this.ropes[i].body.GetMass();
 }
 
-Balloon.DEPTH = -50;
-Balloon.CONTROL_FORCE = 8.5;
-
 Balloon.prototype.update = function()
 {
+	if (this.impactCooldown > 0) this.impactCooldown -= bmacSdk.deltaSec;
+	
+	//respawn
+	if (this.mesh_base.position.y > GameEngine.screenHeight + balloons.RADIUS) this.respawn();
+	
+	//air jets
+	for (var i = 0; i < this.airjets.length; i++)
+	{
+		this.airjets[i].update();
+	}
+	
 	//move to match Box2D body
 	var balloonpos = this.body_balloon.GetPosition();
 	this.mesh_base.position.set(balloonpos.get_x()*thegame.B2_SCALE, balloonpos.get_y()*thegame.B2_SCALE, Balloon.DEPTH);
@@ -257,7 +350,10 @@ Balloon.prototype.update = function()
 	}
 	
 	//buoyancy
-	this.body_balloon.ApplyForceToCenter(new Box2D.b2Vec2(0, this.mass*-10));
+	var force = -this.mass*thegame.gravity.get_y();
+	var buoyancyLoss = Balloon.BUOY_LOSS_PER_JET*this.airjets.length;
+	var effective = 1 - buoyancyLoss;
+	this.body_balloon.ApplyForceToCenter(new Box2D.b2Vec2(0, force*effective));
 	
 	
 	var x = 0;
@@ -266,37 +362,45 @@ Balloon.prototype.update = function()
 	var fire = false;
 	if (this.controlIndex !== undefined)
 	{
-		//player control
-		if (navigator)
+		if (this.porcupine && this.porcupine.mounted)
 		{
-			var gamepadList = navigator.getGamepads();
-			if (gamepadList)
+			//player control
+			if (navigator)
 			{
-				var gamepad = gamepadList[this.controlIndex];
-				if (gamepad)
+				var gamepadList = navigator.getGamepads();
+				if (gamepadList)
 				{
-					x = gamepad.axes[0];
-					y = gamepad.axes[1];
-					
-					x += gamepad.buttons[15].value;
-					x -= gamepad.buttons[14].value;
-					y += gamepad.buttons[13].value;
-					y -= gamepad.buttons[12].value;
-					
-					aimAngle = Math.atan2(gamepad.axes[3], gamepad.axes[2]);
-					
-					if (gamepad.buttons[6].pressed || gamepad.buttons[7].pressed) fire = true;
+					var gamepad = gamepadList[this.controlIndex];
+					if (gamepad)
+					{
+						x = gamepad.axes[0];
+						y = gamepad.axes[1];
+						
+						x += gamepad.buttons[15].value;
+						x -= gamepad.buttons[14].value;
+						y += gamepad.buttons[13].value;
+						y -= gamepad.buttons[12].value;
+						
+						aimAngle = Math.atan2(gamepad.axes[3], gamepad.axes[2]);
+						
+						if (gamepad.buttons[6].pressed || gamepad.buttons[7].pressed) fire = true;
+					}
 				}
 			}
+			if (x == 0 && y == 0)
+			{
+				if (GameEngine.keyboard.pressed(balloons.controls[this.index].left))  x--;
+				if (GameEngine.keyboard.pressed(balloons.controls[this.index].right)) x++;
+				if (GameEngine.keyboard.pressed(balloons.controls[this.index].up))    y--;
+				if (GameEngine.keyboard.pressed(balloons.controls[this.index].down))  y++;
+				
+				if (GameEngine.keyboard.pressed(balloons.controls[this.index].fire)) fire = true;
+			}
 		}
-		if (x == 0 && y == 0)
+		else
 		{
-			if (GameEngine.keyboard.pressed(balloons.controls[this.index].left))  x--;
-			if (GameEngine.keyboard.pressed(balloons.controls[this.index].right)) x++;
-			if (GameEngine.keyboard.pressed(balloons.controls[this.index].up))    y--;
-			if (GameEngine.keyboard.pressed(balloons.controls[this.index].down))  y++;
-			
-			if (GameEngine.keyboard.pressed(balloons.controls[this.index].fire)) fire = true;
+			//If pilot is missing, just automatically adjust for lost buoyancy
+			y = force*buoyancyLoss / Balloon.CONTROL_FORCE;
 		}
 	}
 	else if (this.playerIndex !== undefined)
@@ -351,4 +455,58 @@ Balloon.prototype.update = function()
 			this.porcupine.launch(this.mesh_launcher.quaternion);
 		}
 	}
+}
+
+Balloon.prototype.onBeginContact = function(contact)
+{
+	if (this.porcupine) this.porcupine.onBeginContact(contact);
+}
+
+Balloon.prototype.onEndContact = function(contact)
+{
+	if (this.porcupine) this.porcupine.onEndContact(contact);
+}
+
+Balloon.prototype.impact = function(normal)
+{
+	if (this.impactCooldown <= 0)
+	{
+		this.airjets.push(new AirJet(this.mesh_base, normal));
+		this.impactCooldown = Balloon.IMPACT_COOLDOWN;
+	}
+}
+
+
+
+AirJet = function(parent, normal)
+{
+	this.mesh = bmacSdk.GEO.makeSpriteMesh(balloons.tex_airjet, balloons.geo_airjet);
+	var dist = balloons.RADIUS + 12;
+	this.mesh.position.set(dist*normal.x,dist*normal.y,1);
+	this.mesh.quaternion.setFromAxisAngle(thegame.Z_AXIS, Math.atan2(normal.y, normal.x)-Math.PI/2);
+	parent.add(this.mesh);
+	
+	this.mesh_plume = bmacSdk.GEO.makeSpriteMesh(balloons.tex_airplume, balloons.geo_airplume);
+	this.mesh_plume.position.set(0, 16, 2);
+	this.mesh.add(this.mesh_plume);
+	
+	this.plumeOsc = 0;
+}
+
+AirJet.SCROLL_SPEED = 6;
+AirJet.PLUME_VAR = 0.15;
+AirJet.PLUME_OSC_FREQ = Math.PI*5;
+
+AirJet.prototype.update = function()
+{
+	//oscillate plume scale
+	this.plumeOsc += bmacSdk.deltaSec * AirJet.PLUME_OSC_FREQ;
+	var s = 1 + AirJet.PLUME_VAR * Math.sin(this.plumeOsc);
+	this.mesh_plume.scale.set(s, s, 1);
+}
+
+AirJet.prototype.destroy = function()
+{
+	this.mesh.remove(this.mesh_plume);
+	this.mesh.parent.remove(this.mesh);
 }

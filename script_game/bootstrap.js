@@ -7,7 +7,7 @@ thegame =
 	B2_SCALE: 50,
 	X_AXIS: new THREE.Vector3(1, 0, 0),
 	Y_AXIS: new THREE.Vector3(0, 1, 0),
-	Z_AXIS: new THREE.Vector3(0, 0, 1)
+	Z_AXIS: new THREE.Vector3(0, 0, 1),
 };
 
 thegame.added = function()
@@ -31,6 +31,60 @@ thegame.added = function()
 	//Create b2d world
 	this.gravity = new Box2D.b2Vec2(0.0, 10.0);
 	this.world = new Box2D.b2World(this.gravity);
+	//this.world.SetContactFilter(this.contactFilter);
+	
+	this.contactListener = new Box2D.JSContactListener();
+	this.contactListener.BeginContact = function(contact)
+	{
+		//console.log("begin");
+		//console.log(contact);
+		contact = Box2D.wrapPointer(contact, Box2D.b2Contact);
+		//console.log(contact);
+		for (var i = 0; i < GameEngine.objects.length; i++)
+		{
+			if (GameEngine.objects[i] && GameEngine.objects[i].onBeginContact)
+				GameEngine.objects[i].onBeginContact(contact);
+		}
+	}
+	this.contactListener.EndContact = function(contact)
+	{
+		//console.log("end");
+		//console.log(contact);
+		contact = Box2D.wrapPointer(contact, Box2D.b2Contact);
+		//console.log(contact);
+		for (var i = 0; i < GameEngine.objects.length; i++)
+		{
+			if (GameEngine.objects[i] && GameEngine.objects[i].onEndContact)
+				GameEngine.objects[i].onEndContact(contact);
+		}
+	}
+	this.contactListener.PreSolve = function(contact, oldManifold)
+	{
+		contact = Box2D.wrapPointer(contact, Box2D.b2Contact);
+		for (var i = 0; i < GameEngine.objects.length; i++)
+		{
+			if (GameEngine.objects[i] && GameEngine.objects[i].onPreSolve)
+				GameEngine.objects[i].onPreSolve(contact);
+		}
+	}
+	this.contactListener.PostSolve = function(contact, impulse)
+	{
+		contact = Box2D.wrapPointer(contact, Box2D.b2Contact);
+		for (var i = 0; i < GameEngine.objects.length; i++)
+		{
+			if (GameEngine.objects[i] && GameEngine.objects[i].onPostSolve)
+				GameEngine.objects[i].onPostSolve(contact);
+		}
+	}
+	this.world.SetContactListener(this.contactListener);
+	
+	this.filter_all = new Box2D.b2Filter();
+	this.filter_all.set_maskBits(0xFFFF);
+	this.filter_all.set_categoryBits(0xFFFF);
+	
+	this.filter_none = new Box2D.b2Filter();
+	this.filter_none.set_maskBits(0);
+	this.filter_none.set_categoryBits(0);
 	
 	//Create b2d screen edges
 	this.shape_topbot = new Box2D.b2EdgeShape();
