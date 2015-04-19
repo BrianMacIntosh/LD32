@@ -26,6 +26,8 @@ menus.added = function()
 	this.dom_chatparent = document.getElementById("chatGroup");
 	this.dom_chattext = document.getElementById("chatBox");
 	
+	this.dom_kdr = [document.getElementById("kdr0"),document.getElementById("kdr1")];
+	
 	this.tex_tutorial = THREE.ImageUtils.loadTexture("media/but_tutorial.png");
 	this.tex_1player = THREE.ImageUtils.loadTexture("media/but_1player.png");
 	this.tex_2player = THREE.ImageUtils.loadTexture("media/but_2player.png");
@@ -118,6 +120,10 @@ menus.changeMode = function(mode, delay)
 			this.balloon_2player.setDisabled();
 			this.balloon_2player = null;
 		}
+		
+		//Hide kdr
+		for (var d = 0; d < this.dom_kdr.length; d++)
+			this.dom_kdr[d].style.visibility = "hidden";
 		break;
 		
 	case this.MODE_TUTORIAL:
@@ -165,6 +171,11 @@ menus.enterMode = function(mode)
 			spawnX:GameEngine.screenWidth*3/4, spawnY:GameEngine.screenHeight+balloons.RADIUS+60,
 			targetY:GameEngine.screenHeight/2 - balloons.RADIUS
 		});
+		
+		//Show kdr
+		thegame.updateKDR();
+		for (var d = 0; d < this.dom_kdr.length; d++)
+			this.dom_kdr[d].style.visibility = "visible";
 		break;
 		
 	case this.MODE_TUTORIAL:

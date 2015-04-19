@@ -511,6 +511,17 @@ Balloon.prototype.update = function()
 			this.respawn();
 			if (this.playerIndex === 0 || this.playerIndex === 1)
 				hud.recordWin(1-this.playerIndex);
+			
+			//count
+			if (this.playerIndex !== undefined)
+			{
+				var enemy = balloons.list[1-this.playerIndex];
+				if (!enemy.ai && enemy.playerIndex !== undefined)
+				{
+					thegame.kills[1-this.playerIndex]++;
+				}
+				if (!this.ai) thegame.deaths[this.playerIndex]++;
+			}
 		}
 	}
 	

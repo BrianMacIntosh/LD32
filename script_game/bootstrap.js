@@ -27,8 +27,51 @@ thegame.clearGameState = function()
 	balloons.destroyAll();
 }
 
+thegame.updateKDR = function()
+{
+	for (var i = 0; i < 2; i++)
+	{
+		if (!this.kills[i])
+		{
+			this.dom_kills[i].innerHTML = "0";
+		}
+		else
+		{
+			max = 20;
+			var extra = this.kills[i]-max;
+			var content = "";
+			for (var c = 0; c < this.kills[i] && c < max; c++)
+			{
+				content += '<img src="media/killdecal.png" alt="K">';
+			}
+			if (extra > 0)
+			{
+				if (i == 0)
+					content += " + " + extra;
+				else
+					content = extra + " + " + content;
+			}
+			this.dom_kills[i].innerHTML = content;
+		}
+		this.dom_deaths[i].innerHTML = "" + this.deaths[i];
+		
+		if (this.deaths[i] == 0)
+			this.dom_ratio[i].innerHTML = "--";
+		else
+			this.dom_ratio[i].innerHTML = "" + (Math.round(100 * this.kills[i] / this.deaths[i]));
+	}
+}
+
 thegame.added = function()
 {
+	//load k/d
+	this.dom_kills = [document.getElementById("kills0"),document.getElementById("kills1")];
+	this.dom_deaths = [document.getElementById("deaths0"),document.getElementById("deaths1")];
+	this.dom_ratio = [document.getElementById("ratio0"),document.getElementById("ratio1")];
+	this.kills = [5,1];
+	this.deaths = [1,5];
+	this.updateKDR();
+	
 	//Create sky
 	this.tex_sky = THREE.ImageUtils.loadTexture("media/bg.png");
 	this.geo_sky = bmacSdk.GEO.makeSpriteGeo(GameEngine.screenWidth, GameEngine.screenHeight);
