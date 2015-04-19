@@ -2,18 +2,22 @@
 balloons =
 {
 	list: [],
-	colors: [ 0xff8888ff, 0x8888ffff ],
+	colors: [ 0x8888ff, 0xff8888 ],
 	
 	ROPE_SEGS: 4,
 	ROPE_LEN: 120, //pixels, from balloon center to basket center
 	BASKET_OFF: 120+10,
 	AIM_SPEED: 2.5,
+	CONTROL_FORCE: 9.5,
+	IMPACT_COOLDOWN: 0.5,
+	BUOY_LOSS_PER_JET: 0.03,
 	
 	RADIUS: 55,
 	
 	controls:
 	[
-		{up:"w",down:"s",left:"a",right:"d",fire:"e"}
+		{up:"w",down:"s",left:"a",right:"d",fire_left:"q",fire_right:"e"},
+		{up:"i",down:"j",left:"k",right:"l",fire_left:"u",fire_right:"o"}
 	]
 };
 
@@ -86,12 +90,6 @@ balloons.added = function()
 	this.fdef_ropeseg.set_filter(thegame.filter_none);
 	this.fdef_ropeseg.set_shape(this.shape_ropeseg);
 	this.fdef_ropeseg.set_density(1);
-	
-	//Create a test balloon
-	var testBalloon = new Balloon(this.list.length, 0, 0);
-	this.list.push(testBalloon);
-	var testBalloon = new Balloon(this.list.length);
-	this.list.push(testBalloon);
 };
 
 balloons.removed = function()
@@ -101,7 +99,7 @@ balloons.removed = function()
 
 balloons.update = function()
 {
-	for (var i = 0; i < this.list.length; i++)
+	for (var i = this.list.length-1; i >= 0; i--)
 	{
 		this.list[i].update();
 	}
@@ -125,16 +123,31 @@ balloons.onEndContact = function(contact)
 	}
 };
 
+balloons.onPreSolve = function(contact, oldManifold)
+{
+	for (var i = 0; i < this.list.length; i++)
+	{
+		this.list[i].onPreSolve(contact);
+	}
+};
+
 GameEngine.addObject(balloons);
 
 
 
-Balloon = function(arrIndex, playerIndex, controlIndex)
+//Params:
+//-playerIndex: set if this is a player balloon
+//-ai
+//-dummy: true if this is a target-practice balloon
+//-signtex signgeo: pass in the stuff
+//-spawnX spawnY: override spawn point
+//-targetX targetY: override dummy targets
+Balloon = function(params)
 {
 	//Index is global index
-	this.index = arrIndex;
-	this.playerIndex = playerIndex;
-	this.controlIndex = controlIndex;
+	balloons.list.push(this);
+	this.playerIndex = params.playerIndex;
+	this.ai = params.ai;
 	
 	//damage
 	this.airjets = [];
@@ -144,18 +157,34 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 	this.aimTarget = new THREE.Quaternion();
 	this.aimTarget.setFromAxisAngle(thegame.Z_AXIS, 0);
 	
-	if (this.playerIndex === undefined)
+	if (params.spawnX !== undefined)
+		this.spawnX = params.spawnX/thegame.B2_SCALE;
+	else if (params.dummy)
 		this.spawnX = (GameEngine.screenWidth-300)/thegame.B2_SCALE;
-	else if (this.index == 0)
+	else if (this.playerIndex === 0)
 		this.spawnX = 100/thegame.B2_SCALE;
 	else
 		this.spawnX = (GameEngine.screenWidth-100)/thegame.B2_SCALE;
-	this.spawnY = (GameEngine.screenHeight/2 - balloons.ROPE_LEN/2)/thegame.B2_SCALE;
+	
+	if (params.spawnY !== undefined)
+		this.spawnY = params.spawnY/thegame.B2_SCALE;
+	else
+		this.spawnY = (GameEngine.screenHeight/2 - balloons.ROPE_LEN/2)/thegame.B2_SCALE;
+	
+	if (params.targetX !== undefined)
+		this.targetX = params.targetX/thegame.B2_SCALE;
+	else
+		this.targetX = this.spawnX;
+	
+	if (params.targetY !== undefined)
+		this.targetY = params.targetY/thegame.B2_SCALE;
+	else
+		this.targetY = this.spawnY;
 	
 	var material = new THREE.MeshBasicMaterial(
 	{
-		map:(this.playerIndex !== undefined ? balloons.tex_base : balloons.tex_basetarget),
-		transparent:true, color:(playerIndex !== undefined ? balloons.colors[this.playerIndex] : 0xffffffff)
+		map:(params.dummy ? balloons.tex_basetarget : balloons.tex_base),
+		transparent:true, color:(this.playerIndex !== undefined ? balloons.colors[this.playerIndex] : 0xffffffff)
 	});
 	this.mesh_base = new THREE.Mesh(balloons.geo_balloon, material);
 	GameEngine.scene.add(this.mesh_base);
@@ -167,6 +196,14 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 	
 	this.mesh_basket = bmacSdk.GEO.makeSpriteMesh(balloons.tex_basket, balloons.geo_basket);
 	GameEngine.scene.add(this.mesh_basket);
+	
+	//sign
+	if (params.signtex && params.signgeo)
+	{
+		this.mesh_sign = bmacSdk.GEO.makeSpriteMesh(params.signtex, params.signgeo);
+		this.mesh_basket.add(this.mesh_sign);
+		this.mesh_sign.position.set(0, 20, 1);
+	}
 	
 	//create launcher assets
 	if (this.playerIndex !== undefined)
@@ -187,6 +224,13 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 	this.ropes = [];
 	this.rebuildBodies();
 	
+	if (this.mesh_sign)
+	{
+		//give it a random kick for fun
+		var dir = new Box2D.b2Vec2(Math.random()*10-5, -Math.random()*10);
+		this.body_balloon.ApplyLinearImpulse(dir, this.body_balloon.GetPosition());
+	}
+	
 	if (this.playerIndex !== undefined)
 	{
 		this.porcupine = new Porcupine(this);
@@ -194,21 +238,87 @@ Balloon = function(arrIndex, playerIndex, controlIndex)
 }
 
 Balloon.DEPTH = -50;
-Balloon.CONTROL_FORCE = 8.5;
-Balloon.IMPACT_COOLDOWN = 0.5;
-Balloon.BUOY_LOSS_PER_JET = 0.05;
 
-Balloon.prototype.respawn = function()
+Balloon.prototype.flyAway = function()
 {
-	this.rebuildBodies();
-	
-	//clear jets
-	for (var i = 0; i < this.airjets.length; i++)
-		this.airjets[i].destroy();
-	this.airjets.length = 0;
+	this.killCeiling = -300;
+	this.targetY = this.killCeiling;
 }
 
-Balloon.prototype.rebuildBodies = function()
+Balloon.prototype.mouseHit = function(mousePos)
+{
+	if (bmacSdk.GEO.distance(this.mesh_base.position, mousePos) <= balloons.RADIUS)
+		return true;
+	
+	var wpos = new THREE.Vector3();
+	wpos.setFromMatrixPosition(this.mesh_sign.matrixWorld);
+	if (this.mesh_sign && bmacSdk.GEO.distance(wpos, mousePos) <= 225/2)
+		return true;
+	return false;
+}
+
+Balloon.prototype.setSelected = function(state, tex, tex_sel)
+{
+	if (this.mesh_sign)
+	{
+		var desired = state ? tex_sel : tex;
+		if (this.mesh_sign.material.map != desired)
+		{
+			this.mesh_sign.material.map = desired;
+			this.mesh_sign.material.needsUpdate = true;
+		}
+		this.setBalloonColor(state ? 0xfffaa7 : 0xffffff);
+	}
+}
+
+Balloon.prototype.setDisabled = function()
+{
+	this.setBalloonColor(0xCCCCCC);
+}
+
+Balloon.prototype.setBalloonColor = function(color)
+{
+	if (this.mesh_base.material.color != color)
+	{
+		this.mesh_base.material.color.setHex(color);
+		this.mesh_base.material.needsUpdate = true;
+	}
+}
+
+Balloon.prototype.destroy = function()
+{
+	this.destroyBodies();
+	
+	if (this.mesh_base)
+	{
+		this.mesh_base.parent.remove(this.mesh_base);
+		this.mesh_base = null
+	}
+	if (this.mesh_basket)
+	{
+		this.mesh_basket.parent.remove(this.mesh_basket);
+		this.mesh_basket = null
+	}
+	if (this.mesh_sign)
+	{
+		this.mesh_sign.parent.remove(this.mesh_sign);
+		this.mesh_sign = null
+	}
+	for (var i = 0; i < this.ropes.length; i++)
+	{
+		if (this.ropes[i] && this.ropes[i].mesh)
+		{
+			this.ropes[i].mesh.parent.remove(this.ropes[i].mesh);
+		}
+	}
+	
+	for (var i = balloons.list.length-1; i >= 0; i--)
+	{
+		if (balloons.list[i] === this) balloons.list.splice(i,1);
+	}
+}
+
+Balloon.prototype.destroyBodies = function()
 {
 	//destroy old
 	if (this.body_balloon)
@@ -232,6 +342,21 @@ Balloon.prototype.rebuildBodies = function()
 			}
 		}
 	}
+}
+
+Balloon.prototype.respawn = function()
+{
+	this.rebuildBodies();
+	
+	//clear jets
+	for (var i = 0; i < this.airjets.length; i++)
+		this.airjets[i].destroy();
+	this.airjets.length = 0;
+}
+
+Balloon.prototype.rebuildBodies = function()
+{
+	this.destroyBodies();
 	
 	//set up spawn loc
 	balloons.def_balloon.set_position(new Box2D.b2Vec2(this.spawnX, this.spawnY));
@@ -322,10 +447,27 @@ Balloon.prototype.rebuildBodies = function()
 
 Balloon.prototype.update = function()
 {
+	//destroyed
+	if (!this.mesh_base) return;
+	
 	if (this.impactCooldown > 0) this.impactCooldown -= bmacSdk.deltaSec;
 	
+	//kill
+	if (this.killCeiling !== undefined && this.mesh_base.position.y < this.killCeiling)
+	{
+		this.destroy();
+		return;
+	}
+	
 	//respawn
-	if (this.mesh_base.position.y > GameEngine.screenHeight + balloons.RADIUS) this.respawn();
+	if (this.mesh_base.position.y > GameEngine.screenHeight + balloons.RADIUS)
+	{
+		//don't respawn menu balloons
+		if (!this.mesh_sign)
+		{
+			this.respawn();
+		}
+	}
 	
 	//air jets
 	for (var i = 0; i < this.airjets.length; i++)
@@ -351,68 +493,77 @@ Balloon.prototype.update = function()
 	
 	//buoyancy
 	var force = -this.mass*thegame.gravity.get_y();
-	var buoyancyLoss = Balloon.BUOY_LOSS_PER_JET*this.airjets.length;
+	var buoyancyLoss = balloons.BUOY_LOSS_PER_JET*this.airjets.length;
 	var effective = 1 - buoyancyLoss;
 	this.body_balloon.ApplyForceToCenter(new Box2D.b2Vec2(0, force*effective));
 	
+	//force down from top
+	if (balloonpos.get_y() < 0 && this.killCeiling === undefined)
+	{
+		this.body_balloon.ApplyForceToCenter(new Box2D.b2Vec2(0, balloons.CONTROL_FORCE*2));
+	}
 	
 	var x = 0;
 	var y = 0;
 	var aimAngle = 0;
-	var fire = false;
-	if (this.controlIndex !== undefined)
+	var fire = 0;
+	if (this.playerIndex !== undefined)
 	{
 		if (this.porcupine && this.porcupine.mounted)
 		{
-			//player control
-			if (navigator)
+			if (this.ai)
 			{
-				var gamepadList = navigator.getGamepads();
-				if (gamepadList)
+				//ai control
+				
+			}
+			else
+			{
+				//player control
+				if (navigator)
 				{
-					var gamepad = gamepadList[this.controlIndex];
-					if (gamepad)
+					var gamepadList = navigator.getGamepads();
+					if (gamepadList)
 					{
-						x = gamepad.axes[0];
-						y = gamepad.axes[1];
-						
-						x += gamepad.buttons[15].value;
-						x -= gamepad.buttons[14].value;
-						y += gamepad.buttons[13].value;
-						y -= gamepad.buttons[12].value;
-						
-						aimAngle = Math.atan2(gamepad.axes[3], gamepad.axes[2]);
-						
-						if (gamepad.buttons[6].pressed || gamepad.buttons[7].pressed) fire = true;
+						var gamepad = gamepadList[this.playerIndex];
+						if (gamepad)
+						{
+							x = gamepad.axes[0];
+							y = gamepad.axes[1];
+							
+							x += gamepad.buttons[15].value;
+							x -= gamepad.buttons[14].value;
+							y += gamepad.buttons[13].value;
+							y -= gamepad.buttons[12].value;
+							
+							aimAngle = Math.atan2(gamepad.axes[3], gamepad.axes[2]);
+							
+							if (gamepad.buttons[6].pressed || gamepad.buttons[7].pressed) fire = true;
+						}
 					}
 				}
-			}
-			if (x == 0 && y == 0)
-			{
-				if (GameEngine.keyboard.pressed(balloons.controls[this.index].left))  x--;
-				if (GameEngine.keyboard.pressed(balloons.controls[this.index].right)) x++;
-				if (GameEngine.keyboard.pressed(balloons.controls[this.index].up))    y--;
-				if (GameEngine.keyboard.pressed(balloons.controls[this.index].down))  y++;
-				
-				if (GameEngine.keyboard.pressed(balloons.controls[this.index].fire)) fire = true;
+				if (x == 0 && y == 0)
+				{
+					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].left))  x--;
+					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].right)) x++;
+					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].up))    y--;
+					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].down))  y++;
+					
+					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].fire_left)) fire = -1;
+					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].fire_right)) fire = 1;
+				}
 			}
 		}
 		else
 		{
 			//If pilot is missing, just automatically adjust for lost buoyancy
-			y = force*buoyancyLoss / Balloon.CONTROL_FORCE;
+			y = force*buoyancyLoss / balloons.CONTROL_FORCE;
 		}
-	}
-	else if (this.playerIndex !== undefined)
-	{
-		//ai control
-		
 	}
 	else
 	{
 		//dummy just moves toward spawn
-		x = this.spawnX-balloonpos.get_x();
-		y = this.spawnY-balloonpos.get_y();
+		x = this.targetX-balloonpos.get_x();
+		y = this.targetY-balloonpos.get_y();
 		var len = Math.sqrt(x*x+y*y);
 		x /= len;
 		y /= len;
@@ -424,7 +575,7 @@ Balloon.prototype.update = function()
 	else if (y < -1) y = -1;
 	
 	//Move
-	this.body_balloon.ApplyForceToCenter(new Box2D.b2Vec2(x*Balloon.CONTROL_FORCE, y*Balloon.CONTROL_FORCE));
+	this.body_balloon.ApplyForceToCenter(new Box2D.b2Vec2(x*balloons.CONTROL_FORCE, y*balloons.CONTROL_FORCE));
 	
 	//Aim
 	if (this.mesh_launcher)
@@ -449,10 +600,12 @@ Balloon.prototype.update = function()
 	if (this.porcupine)
 	{
 		this.porcupine.update();
-		
 		if (fire && this.mesh_launcher)
 		{
-			this.porcupine.launch(this.mesh_launcher.quaternion);
+			var quat = this.mesh_launcher.quaternion;
+			if (fire === 1) quat.setFromAxisAngle(thegame.Z_AXIS, 0);
+			else if (fire === -1) quat.setFromAxisAngle(thegame.Z_AXIS, Math.PI);
+			this.porcupine.launch(quat);
 		}
 	}
 }
@@ -467,12 +620,17 @@ Balloon.prototype.onEndContact = function(contact)
 	if (this.porcupine) this.porcupine.onEndContact(contact);
 }
 
+Balloon.prototype.onPreSolve = function(contact)
+{
+	if (this.porcupine) this.porcupine.onPreSolve(contact);
+}
+
 Balloon.prototype.impact = function(normal)
 {
 	if (this.impactCooldown <= 0)
 	{
 		this.airjets.push(new AirJet(this.mesh_base, normal));
-		this.impactCooldown = Balloon.IMPACT_COOLDOWN;
+		this.impactCooldown = balloons.IMPACT_COOLDOWN;
 	}
 }
 

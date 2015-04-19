@@ -90,22 +90,24 @@ thegame.added = function()
 	this.shape_topbot = new Box2D.b2EdgeShape();
 	this.shape_topbot.Set(new Box2D.b2Vec2(0, 0), new Box2D.b2Vec2(GameEngine.screenWidth / this.B2_SCALE, 0));
 	this.shape_lr = new Box2D.b2EdgeShape();
-	this.shape_lr.Set(new Box2D.b2Vec2(0, 0), new Box2D.b2Vec2(0, GameEngine.screenHeight / this.B2_SCALE));
+	this.shape_lr.Set(new Box2D.b2Vec2(0, -100), new Box2D.b2Vec2(0, GameEngine.screenHeight / this.B2_SCALE + 100));
 	
 	this.fdef_topbot = new Box2D.b2FixtureDef();
 	this.fdef_topbot.set_shape(this.shape_topbot);
 	this.fdef_topbot.set_density(0);
 	this.fdef_topbot.set_friction(0);
+	this.fdef_topbot.set_restitution(0.6);
 	
 	this.fdef_lr = new Box2D.b2FixtureDef();
 	this.fdef_lr.set_shape(this.shape_lr);
 	this.fdef_lr.set_density(0);
 	this.fdef_lr.set_friction(0);
+	this.fdef_lr.set_restitution(0.6);
 	
-	this.def_top = new Box2D.b2BodyDef();
-	this.def_top.set_position(new Box2D.b2Vec2(0, 0));
-	this.body_top = this.world.CreateBody(this.def_top);
-	this.body_top.CreateFixture(this.fdef_topbot);
+	//this.def_top = new Box2D.b2BodyDef();
+	//this.def_top.set_position(new Box2D.b2Vec2(0, 0));
+	//this.body_top = this.world.CreateBody(this.def_top);
+	//this.body_top.CreateFixture(this.fdef_topbot);
 	
 	//this.def_bottom = new Box2D.b2BodyDef();
 	//this.def_bottom.set_position(new Box2D.b2Vec2(0, GameEngine.screenHeight / this.B2_SCALE));

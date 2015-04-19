@@ -17,3 +17,10 @@ bmacSdk.GEO.makeSpriteGeo = function(width, height)
 	geo.applyMatrix(bmacSdk.GEO.c_planeCorrection);
 	return geo;
 }
+
+bmacSdk.GEO.distance = function(thing1, thing2)
+{
+	var dx = thing1.x - thing2.x;
+	var dy = thing1.y - thing2.y;
+	return Math.sqrt(dx*dx+dy*dy);
+}
