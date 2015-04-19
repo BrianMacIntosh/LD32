@@ -10,6 +10,17 @@ thegame =
 	Z_AXIS: new THREE.Vector3(0, 0, 1),
 };
 
+thegame.togglePause = function()
+{
+	this.setPause(!this.paused);
+};
+
+thegame.setPause = function(val)
+{
+	this.paused = val;
+	menus.pauseGame(val);
+}
+
 thegame.added = function()
 {
 	//Create sky
@@ -132,6 +143,8 @@ thegame.removed = function()
 
 thegame.update = function()
 {
+	if (this.paused) return;
+	
 	this.world.Step(bmacSdk.deltaSec, 2, 2);
 	
 	//Scroll clouds

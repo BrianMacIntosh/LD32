@@ -3,7 +3,7 @@ porcupines =
 {
 	width: 46,
 	height: 63,
-	LAUNCH_FORCE: 5.5,
+	LAUNCH_FORCE: 5,
 	RESPAWN_LINE: 60,
 	RESPAWN_TIMER: 2.5,
 	
@@ -272,7 +272,7 @@ Porcupine.prototype.update = function()
 	
 	//Respawn
 	var spawnline = (GameEngine.screenHeight + porcupines.RESPAWN_LINE) / thegame.B2_SCALE
-	if (bodypos.get_y() > spawnline)
+	if (!this.mounted && bodypos.get_y() > spawnline)
 	{
 		this.respawn();
 	}

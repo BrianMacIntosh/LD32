@@ -8,7 +8,7 @@ balloons =
 	ROPE_LEN: 120, //pixels, from balloon center to basket center
 	BASKET_OFF: 120+10,
 	AIM_SPEED: 2.5,
-	CONTROL_FORCE: 9.5,
+	CONTROL_FORCE: 13,
 	IMPACT_COOLDOWN: 0.5,
 	BUOY_LOSS_PER_JET: 0.03,
 	AI_FIRE_COOLDOWN: 1,
@@ -100,6 +100,8 @@ balloons.removed = function()
 
 balloons.update = function()
 {
+	if (thegame.paused) return;
+	
 	for (var i = this.list.length-1; i >= 0; i--)
 	{
 		this.list[i].update();

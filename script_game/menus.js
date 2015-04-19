@@ -17,9 +17,31 @@ menus.added = function()
 	this.tex_tutorial_sel = THREE.ImageUtils.loadTexture("media/but_tutorial_sel.png");
 	this.tex_1player_sel = THREE.ImageUtils.loadTexture("media/but_1player_sel.png");
 	this.tex_2player_sel = THREE.ImageUtils.loadTexture("media/but_2player_sel.png");
+	this.tex_white = THREE.ImageUtils.loadTexture("media/white.png");
 	this.geo_sign = bmacSdk.GEO.makeSpriteGeo(225, 98);
 	
+	this.geo_screen = bmacSdk.GEO.makeSpriteGeo(GameEngine.screenWidth, GameEngine.screenHeight);
+	
+	this.mesh_fader = bmacSdk.GEO.makeSpriteMesh(this.tex_white, this.geo_screen);
+	GameEngine.scene.add(this.mesh_fader);
+	this.mesh_fader.material.color.setHex(0x000000);
+	this.mesh_fader.material.opacity = 0.5;
+	this.mesh_fader.position.set(GameEngine.screenWidth/2, GameEngine.screenHeight/2, -10);
+	
+	this.tex_paused = THREE.ImageUtils.loadTexture("media/paused.png");
+	this.geo_paused = bmacSdk.GEO.makeSpriteGeo(116, 37);
+	this.mesh_paused = bmacSdk.GEO.makeSpriteMesh(this.tex_paused, this.geo_paused);
+	this.mesh_paused.position.set(GameEngine.screenWidth/2, 250, -8);
+	GameEngine.scene.add(this.mesh_paused);
+	
 	this.changeMode(this.MODE_MAIN);
+	this.pauseGame(false);
+};
+
+menus.pauseGame = function(state)
+{
+	this.mesh_fader.visible = state;
+	this.mesh_paused.visible = state;
 };
 
 menus.changeMode = function(mode, delay)
@@ -53,14 +75,17 @@ menus.changeMode = function(mode, delay)
 		
 	case this.MODE_TUTORIAL:
 		hud.hide();
+		thegame.setPause(false);
 		break;
 		
 	case this.MODE_1PLAYER:
 		hud.hide();
+		thegame.setPause(false);
 		break;
 		
 	case this.MODE_2PLAYER:
 		hud.hide();
+		thegame.setPause(false);
 		break;
 	}
 	
@@ -75,6 +100,7 @@ menus.enterMode = function(mode)
 	{
 	case this.MODE_MAIN:
 		//main menu
+		this.currentOption = undefined;
 		this.balloon_tutorial = new Balloon({
 			signtex:this.tex_tutorial, signgeo:this.geo_sign,
 			spawnX:GameEngine.screenWidth/4, spawnY:GameEngine.screenHeight+balloons.RADIUS+60,
@@ -101,14 +127,14 @@ menus.enterMode = function(mode)
 		
 	case this.MODE_1PLAYER:
 		//play the game
-		hud.show(3);
+		hud.show(5);
 		new Balloon({playerIndex:0});
 		new Balloon({playerIndex:1, ai:true});
 		break;
 		
 	case this.MODE_2PLAYER:
 		//play the game
-		hud.show(3);
+		hud.show(5);
 		new Balloon({playerIndex:0});
 		new Balloon({playerIndex:1});
 		break;
@@ -146,7 +172,7 @@ menus.update = function()
 			gamepad = gamepadList[0];
 	}
 	
-	var advance = GameEngine.keyboard.pressed("space") || GameEngine.keyboard.pressed("\n")
+	var advance = GameEngine.keyboard.pressed("space") || GameEngine.keyboard.pressed("return")
 		|| GameEngine.mouse.mouseUpNew[1] || gamepad && gamepad.buttons[0].pressed;
 	
 	switch (this.currentMode)
@@ -154,29 +180,85 @@ menus.update = function()
 	case this.MODE_MAIN:
 		var option = undefined;
 		if (this.balloon_2player.mouseHit(mousePos))
-			option = this.balloon_2player;
+			option = 2;
 		if (this.balloon_1player.mouseHit(mousePos))
-			option = this.balloon_1player;
+			option = 1;
 		if (this.balloon_tutorial.mouseHit(mousePos))
-			option = this.balloon_tutorial;
+			option = 0;
+		
+		if (this.lastMouse && (this.lastMouse.x != mousePos.x || this.lastMouse.y != mousePos.y))
+		{
+			//Mouse control
+			this.currentOption = option;
+		}
+		else if ((gamepad && gamepad.buttons[14].pressed) || GameEngine.keyboard.pressed("left") || (gamepad.axes[0] < -0.3 && this.lastStickX >= -0.3))
+		{
+			if (!this.pressed)
+			{
+				this.pressed = true;
+				if (this.currentOption !== undefined)
+					this.currentOption--;
+				else
+					this.currentOption = 2;
+			}
+		}
+		else if ((gamepad && gamepad.buttons[15].pressed) || GameEngine.keyboard.pressed("right") || (gamepad.axes[0] > 0.3 && this.lastStickX <= 0.3))
+		{
+			if (!this.pressed)
+			{
+				this.pressed = true;
+				if (this.currentOption !== undefined)
+					this.currentOption++;
+				else
+					this.currentOption = 0;
+			}
+		}
+		else
+		{
+			this.pressed = false;
+		}
+		
+		//Wrap
+		if (this.currentOption > 2) this.currentOption = 0;
+		else if (this.currentOption < 0) this.currentOption = 2;
 		
 		//Update highlights
-		this.balloon_2player.setSelected(!advance && option === this.balloon_2player, this.tex_2player, this.tex_2player_sel);
-		this.balloon_1player.setSelected(!advance && option === this.balloon_1player, this.tex_1player, this.tex_1player_sel);
-		this.balloon_tutorial.setSelected(!advance && option === this.balloon_tutorial, this.tex_tutorial, this.tex_tutorial_sel);
+		this.balloon_2player.setSelected(!advance && this.currentOption === 2, this.tex_2player, this.tex_2player_sel);
+		this.balloon_1player.setSelected(!advance && this.currentOption === 1, this.tex_1player, this.tex_1player_sel);
+		this.balloon_tutorial.setSelected(!advance && this.currentOption === 0, this.tex_tutorial, this.tex_tutorial_sel);
 		
 		if (advance)
 		{
-			if (option == this.balloon_2player)
+			if (this.currentOption == 2)
 				this.changeMode(this.MODE_2PLAYER, 3);
-			else if (option == this.balloon_1player)
+			else if (this.currentOption == 1)
 				this.changeMode(this.MODE_1PLAYER, 4);
-			else if (option == this.balloon_tutorial)
+			else if (this.currentOption == 0)
 				this.changeMode(this.MODE_TUTORIAL, 4);
 		}
 		
 		break;
+		
+	case this.MODE_2PLAYER:
+	case this.MODE_1PLAYER:
+	case this.MODE_TUTORIAL:
+		if ((gamepad && gamepad.buttons[9].pressed) || GameEngine.keyboard.pressed("escape"))
+		{
+			if (!this.pressed)
+			{
+				this.pressed = true;
+				thegame.togglePause();
+			}
+		}
+		else
+		{
+			this.pressed = false;
+		}
+		break;
 	}
+	
+	this.lastMouse = mousePos;
+	if (gamepad) this.lastStickX = gamepad.axes[0];
 };
 
 
@@ -188,7 +270,9 @@ hud =
 	record: [0,0],
 	
 	ICO_SCALEMAX: 2.2,
-	ICO_SCALESPEED: 1.6
+	ICO_SCALESPEED: 1.6,
+	
+	DEPTH: -12
 };
 
 hud.recordWin = function(playerIndex)
@@ -256,7 +340,7 @@ hud.added = function()
 	this.geo_divider = bmacSdk.GEO.makeSpriteGeo(22, 63);
 	
 	this.root = new THREE.Object3D();
-	this.root.position.set(GameEngine.screenWidth/2, 40, -2);
+	this.root.position.set(GameEngine.screenWidth/2, 40, this.DEPTH);
 	GameEngine.scene.add(this.root);
 	
 	this.divider = bmacSdk.GEO.makeSpriteMesh(this.tex_divider, this.geo_divider);
