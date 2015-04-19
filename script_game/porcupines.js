@@ -3,21 +3,16 @@ porcupines =
 {
 	width: 46,
 	height: 63,
-	LAUNCH_FORCE: 5,
+	LAUNCH_FORCE: 6,
 	RESPAWN_LINE: 60,
 	RESPAWN_TIMER: 2.5,
 	
 	audio:
 	{
-		dodamage:[
-		"audio/dodamage1.mp3","audio/dodamage2.mp3","audio/dodamage3.mp3"
-		],
-		lowhealth:[
-		"audio/lowhealth1.mp3","audio/lowhealth2.mp3","audio/lowhealth3.mp3"
-		],
-		collide:[
-		"audio/collide1.mp3","audio/collide2.mp3","audio/collide3.mp3","audio/collide4.mp3"
-		]
+		dodamage:["audio/dodamage1.mp3","audio/dodamage2.mp3","audio/dodamage3.mp3"],
+		lowhealth:["audio/lowhealth1.mp3","audio/lowhealth2.mp3","audio/lowhealth3.mp3"],
+		collide:["audio/collide1.mp3","audio/collide2.mp3","audio/collide3.mp3","audio/collide4.mp3"],
+		basket:["audio/basket1.mp3","audio/basket2.mp3","audio/basket3.mp3"],
 	}
 };
 
@@ -82,6 +77,17 @@ Porcupine = function(shipOwner)
 
 Porcupine.DEPTH = -40;
 Porcupine.ANGLE_SPEED = Math.PI;
+
+Porcupine.prototype.destroy = function()
+{
+	this.mesh_arm.parent.remove(this.mesh_arm);
+	this.mesh.parent.remove(this.mesh);
+	
+	this.fixture.porcupine = undefined;
+	thegame.world.DestroyBody(this.body);
+	this.body = null;
+	this.fixture = null;
+}
 
 Porcupine.prototype.mountNextFrame = function()
 {
@@ -213,23 +219,14 @@ Porcupine.prototype.update = function()
 			else
 			{
 				//player control
-				if (navigator)
+				if (this.owner.controlScheme === balloons.GAMEPAD)
 				{
-					var gamepadList = navigator.getGamepads();
-					if (gamepadList)
-					{
-						var gamepad = gamepadList[this.owner.playerIndex];
-						if (gamepad)
-						{
-							x = gamepad.axes[0];
-							y = gamepad.axes[1];
-							
-							x += gamepad.buttons[15].value;
-							x -= gamepad.buttons[14].value;
-						}
-					}
+					x = bmacSdk.INPUT.gamepadAxis(this.owner.playerIndex, bmacSdk.INPUT.GA_LEFTSTICK_X);
+					
+					x += bmacSdk.INPUT.gamepadButtonValue(this.owner.playerIndex, bmacSdk.INPUT.GB_DPAD_RIGHT);
+					x -= bmacSdk.INPUT.gamepadButtonValue(this.owner.playerIndex, bmacSdk.INPUT.GB_DPAD_LEFT);
 				}
-				if (x == 0)
+				else
 				{
 					if (GameEngine.keyboard.keyDown(balloons.controls[this.owner.playerIndex].left))  x--;
 					if (GameEngine.keyboard.keyDown(balloons.controls[this.owner.playerIndex].right)) x++;
@@ -239,6 +236,12 @@ Porcupine.prototype.update = function()
 		
 		if (x > 1) x = 1;
 		else if (x < -1) x = -1;
+		
+		if (hud.gameOverTimer || hud.readyWait)
+		{
+			x = 0; y = 0;
+		}
+		
 		
 		//Redirect the velocity based on the angle of travel
 		var velocity = this.body.GetLinearVelocity();
@@ -317,19 +320,20 @@ Porcupine.prototype.onBeginContact = function(contact)
 			this.mesh.position.y-other.balloon.mesh_base.position.y);
 		normal.normalize();
 		other.balloon.impact(normal);
-		
-		//Play damage sound
-		AUDIOMANAGER.playSound(porcupines.audio.dodamage);
 	}
 	else if (this.fixture == fixtureA && other.porcupine) //'A' check to play only once
 	{
 		//Play collide sound
 		AUDIOMANAGER.playSound(porcupines.audio.collide);
 	}
-	else if (this.clear && other.basketFor === this.owner)
+	else if (other.basketFor)
 	{
-		//Reboard own balloon
-		this.mountNextFrame();
+		AUDIOMANAGER.playSound(porcupines.audio.basket);
+		if (this.clear && other.basketFor === this.owner)
+		{
+			//Reboard own balloon
+			this.mountNextFrame();
+		}
 	}
 }
 

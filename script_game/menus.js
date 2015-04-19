@@ -6,11 +6,26 @@ menus =
 	MODE_2PLAYER_LOBBY: 3,
 	MODE_2PLAYER: 4,
 	MODE_1PLAYER: 5,
-	MODE_TUTORIAL: 6
+	MODE_TUTORIAL: 6,
+	
+	tutorials:
+	[
+		"So you want to join the porcupine air force, huh? Let's see if you've got what it takes.",
+		"You need to use WASD or the Left Stick to move your craft.",
+		"Once you're in an advantageous position, launch yourself at the enemy with Q, E, or the Triggers.",
+		"What do you mean you don't know how to fly? Just use A and D or the Left Stick!",
+		"After attacking, return to your craft or you'll find out just how far away the ground is.",
+		"Let's see if you can bring down that target dummy.",
+		"You can do more target practice or return to the menu to see some real combat."
+	],
+	tutorialPhase: 0
 };
 
 menus.added = function()
 {
+	this.dom_chatparent = document.getElementById("chatGroup");
+	this.dom_chattext = document.getElementById("chatBox");
+	
 	this.tex_tutorial = THREE.ImageUtils.loadTexture("media/but_tutorial.png");
 	this.tex_1player = THREE.ImageUtils.loadTexture("media/but_1player.png");
 	this.tex_2player = THREE.ImageUtils.loadTexture("media/but_2player.png");
@@ -42,15 +57,28 @@ menus.added = function()
 	this.pauseButtons[0] = bmacSdk.GEO.makeSpriteMesh(this.tex_but_menu, this.geo_but);
 	this.mesh_paused.add(this.pauseButtons[0]);
 	this.pauseButtons[0].position.set(0, 110, 0);
+	this.pauseButtons[0].state_neutral = this.pauseButtons[0].material.map;
+	this.pauseButtons[0].state_selected = THREE.ImageUtils.loadTexture("media/but_menu_sel.png");
 	
 	this.tex_but_resume = THREE.ImageUtils.loadTexture("media/but_resume.png");
 	this.pauseButtons[1] = bmacSdk.GEO.makeSpriteMesh(this.tex_but_resume, this.geo_but);
 	this.mesh_paused.add(this.pauseButtons[1]);
 	this.pauseButtons[1].position.set(0, 160, 0);
+	this.pauseButtons[1].state_neutral = this.pauseButtons[1].material.map;
+	this.pauseButtons[1].state_selected = THREE.ImageUtils.loadTexture("media/but_resume_sel.png");
 	
 	this.changeMode(this.MODE_MAIN);
 	this.pauseGame(false);
 };
+
+menus.advanceTutorial = function()
+{
+	this.dom_chatparent.style.visibility = "visible";
+	this.dom_chattext.innerHTML = this.tutorials[this.tutorialPhase];
+	
+	this.tutorialTimer = 5;
+	this.tutorialPhase++;
+}
 
 menus.pauseGame = function(state)
 {
@@ -63,6 +91,9 @@ menus.pauseGame = function(state)
 menus.changeMode = function(mode, delay)
 {
 	console.log("Change mode to '" + mode + "'.");
+	
+	if (hud.dom_announcement) hud.dom_announcement.style.visibility = "hidden";
+	hud.hideAllControls();
 	
 	//Exit old mode
 	switch (this.currentMode)
@@ -91,17 +122,18 @@ menus.changeMode = function(mode, delay)
 		
 	case this.MODE_TUTORIAL:
 		hud.hide();
-		thegame.setPause(false);
+		thegame.clearGameState();
+		this.dom_chatparent.style.visibility = "hidden";
 		break;
 		
 	case this.MODE_1PLAYER:
 		hud.hide();
-		thegame.setPause(false);
+		thegame.clearGameState();
 		break;
 		
 	case this.MODE_2PLAYER:
 		hud.hide();
-		thegame.setPause(false);
+		thegame.clearGameState();
 		break;
 	}
 	
@@ -140,20 +172,29 @@ menus.enterMode = function(mode)
 		hud.hide();
 		new Balloon({playerIndex:0});
 		new Balloon({dummy:true});
+		this.tutorialPhase = 0;
+		this.advanceTutorial();
+		hud.readyWait = true;
+		hud.showControls(0);
 		break;
 		
 	case this.MODE_1PLAYER:
 		//play the game
-		hud.show(5);
+		hud.show();
 		new Balloon({playerIndex:0});
 		new Balloon({playerIndex:1, ai:true});
+		hud.readyWait = true;
+		hud.showControls(0);
 		break;
 		
 	case this.MODE_2PLAYER:
 		//play the game
-		hud.show(5);
+		hud.show();
 		new Balloon({playerIndex:0});
 		new Balloon({playerIndex:1});
+		hud.readyWait = true;
+		hud.showControls(0);
+		hud.showControls(1);
 		break;
 	}
 	
@@ -249,6 +290,12 @@ menus.update = function()
 		if (thegame.paused)
 		{
 			//control the pause menu
+			var option = undefined;
+			//if (this.balloon_1player.mouseHit(mousePos))
+			//	option = 1;
+			//if (this.balloon_tutorial.mouseHit(mousePos))
+			//	option = 0;
+			
 			if (bmacSdk.INPUT.actionMenuCancel() || bmacSdk.INPUT.actionGamePause())
 			{
 				thegame.togglePause();
@@ -267,16 +314,83 @@ menus.update = function()
 				else
 					this.currentOption = 0;
 			}
+			
+			//Wrap
+			if (this.currentOption > 1) this.currentOption = 0;
+			else if (this.currentOption < 0) this.currentOption = 1;
+			
+			//Update highlights
+			for (var i = 0; i < this.pauseButtons.length; i++)
+			{
+				var desired;
+				if (!advance && this.currentOption === i)
+					desired = this.pauseButtons[i].state_selected;
+				else
+					desired = this.pauseButtons[i].state_neutral;
+				if (desired !== this.pauseButtons[i].material.map)
+				{
+					this.pauseButtons[i].material.map = desired;
+					this.pauseButtons[i].material.needsUpdate = true;
+				}
+			}
+			
+			if (advance)
+			{
+				if (this.currentOption == 0)
+					this.changeMode(this.MODE_MAIN, 0);
+				else if (this.currentOption == 1)
+					thegame.togglePause();
+			}
 		}
 		else
 		{
 			//control the in-game hud
-			if (bmacSdk.INPUT.actionGamePause())
+			if (bmacSdk.INPUT.actionGamePause() && !hud.readyWait)
 			{
 				thegame.togglePause();
 			}
 		}
 		break;
+	}
+	
+	if (this.currentMode == this.MODE_TUTORIAL)
+	{
+		this.tutorialTimer -= bmacSdk.deltaSec;
+		if (!this.tutorialTimer || this.tutorialTimer <= 0)
+		{
+			switch (this.tutorialPhase)
+			{
+			case 1:
+				//timed
+				this.advanceTutorial();
+				break;
+			case 2:
+				//movement
+				if (Math.abs(balloons.list[0].controlX) >= 0.7 || Math.abs(balloons.list[0].controlY) >= 0.7)
+					this.advanceTutorial();
+				break;
+			case 3:
+				//launching
+				if (!balloons.list[0].porcupine.mounted)
+					this.advanceTutorial();
+				break;
+			case 4:
+				//impact enemy
+				if (balloons.list[1].airjets.length > 0)
+					this.advanceTutorial();
+				break;
+			case 5:
+				//reboard
+				if (balloons.list[0].porcupine.mounted)
+					this.advanceTutorial();
+				break;
+			case 6:
+				//destroy enemy
+				if (balloons.list[1].respawns > 0)
+					this.advanceTutorial();
+				break;
+			}
+		}
 	}
 	
 	this.lastMouse = mousePos;
@@ -293,11 +407,15 @@ hud =
 	ICO_SCALEMAX: 2.2,
 	ICO_SCALESPEED: 1.6,
 	
-	DEPTH: -12
+	DEPTH: -12,
+	
+	NEEDED_TO_WIN: 6
 };
 
 hud.recordWin = function(playerIndex)
 {
+	if (this.gameOverTimer || this.readyWait) return;
+	
 	//change in new mesh
 	if (this.record[playerIndex] < this.widgets[playerIndex].length)
 	{
@@ -308,6 +426,14 @@ hud.recordWin = function(playerIndex)
 	}
 	
 	this.record[playerIndex]++;
+	if (this.record[playerIndex] >= this.NEEDED_TO_WIN)
+	{
+		this.gameOverTimer = 6;
+		this.winner = playerIndex;
+		
+		this.dom_announcement.style.visibility = "visible";
+		this.dom_announcement.innerHTML = "Player " + (playerIndex+1) + " wins!";
+	}
 };
 
 hud.hide = function()
@@ -318,6 +444,7 @@ hud.hide = function()
 
 hud.show = function(neededToWin)
 {
+	if (neededToWin === undefined) neededToWin = this.NEEDED_TO_WIN;
 	this.divider.visible = true;
 	
 	//reset record
@@ -352,13 +479,71 @@ hud.show = function(neededToWin)
 	}
 };
 
+hud.showControls = function(pl)
+{
+	this.controlui[pl].keyboard.visible = true;
+	this.controlui[pl].gamepad.visible = true;
+	this.controlui[pl].ready.visible = false;
+};
+
+hud.readyKeys = function(pl)
+{
+	this.controlui[pl].ready.visible = true;
+	this.controlui[pl].ready.position.y = 0;
+};
+
+hud.readyGamepad = function(pl)
+{
+	this.controlui[pl].ready.visible = true;
+	this.controlui[pl].ready.position.y = 90;
+};
+
+hud.hideAllControls = function()
+{
+	if (!this.controlui) return;
+	for (var i = 0; i < this.controlui.length; i++)
+	{
+		this.controlui[i].keyboard.visible = false;
+		this.controlui[i].gamepad.visible = false;
+		this.controlui[i].ready.visible = false;
+	}
+};
+
 hud.added = function()
 {
+	this.dom_announcement = document.getElementById("announcement");
+	
 	this.tex_win = THREE.ImageUtils.loadTexture("media/ui_win.png");
 	this.tex_nowin = THREE.ImageUtils.loadTexture("media/ui_nowin.png");
 	this.tex_divider = THREE.ImageUtils.loadTexture("media/ui_divider.png");
 	this.geo_win = bmacSdk.GEO.makeSpriteGeo(41, 41);
 	this.geo_divider = bmacSdk.GEO.makeSpriteGeo(22, 63);
+	
+	//Control/Lobby
+	this.tex_gamepad = THREE.ImageUtils.loadTexture("media/ctrl_gamepad.png");
+	this.tex_keyboard1 = THREE.ImageUtils.loadTexture("media/ctrl_keyboard1.png");
+	this.tex_keyboard2 = THREE.ImageUtils.loadTexture("media/ctrl_keyboard2.png");
+	this.tex_ready = THREE.ImageUtils.loadTexture("media/ready.png");
+	this.geo_ctrl = bmacSdk.GEO.makeSpriteGeo(91, 58);
+	this.geo_ready = bmacSdk.GEO.makeSpriteGeo(96, 27);
+	
+	this.controlui = [];
+	for (var i = 0; i < 2; i++)
+	{
+		var obj = new THREE.Object3D();
+		GameEngine.scene.add(obj);
+		obj.position.set(GameEngine.screenWidth / 4 + i*(GameEngine.screenWidth/2), 350, -15);
+		obj.keyboard = bmacSdk.GEO.makeSpriteMesh(this['tex_keyboard'+(i+1)], this.geo_ctrl);
+		obj.add(obj.keyboard);
+		obj.gamepad = bmacSdk.GEO.makeSpriteMesh(this.tex_gamepad, this.geo_ctrl);
+		obj.gamepad.position.set(0, 90, 0);
+		obj.add(obj.gamepad);
+		obj.ready = bmacSdk.GEO.makeSpriteMesh(this.tex_ready, this.geo_ready);
+		obj.ready.position.set(-100 * (i*2-1), 0, 1);
+		obj.add(obj.ready);
+		this.controlui[i] = obj;
+	}
+	this.hideAllControls();
 	
 	this.root = new THREE.Object3D();
 	this.root.position.set(GameEngine.screenWidth/2, 40, this.DEPTH);
@@ -378,6 +563,33 @@ hud.removed = function()
 
 hud.update = function()
 {
+	//start game if all players are ready
+	if (this.readyWait)
+	{
+		var unready = false;
+		for (var i = 0; i < balloons.list.length; i++)
+		{
+			if (!balloons.list[i].controlScheme && !balloons.list[i].ai && balloons.list[i].playerIndex !== undefined)
+				unready = true;
+		}
+		if (!unready)
+		{
+			this.readyWait = false;
+			this.hideAllControls();
+		}
+	}
+	
+	//game over timer
+	if (this.gameOverTimer)
+	{
+		this.gameOverTimer -= bmacSdk.deltaSec;
+		if (this.gameOverTimer <= 0)
+		{
+			this.gameOverTimer = 0;
+			menus.changeMode(menus.MODE_MAIN);
+		}
+	}
+	
 	//scale down large win icons
 	for (var d = 0; d < this.widgets.length; d++)
 	{

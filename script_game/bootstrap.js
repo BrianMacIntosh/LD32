@@ -21,6 +21,12 @@ thegame.setPause = function(val)
 	menus.pauseGame(val);
 }
 
+thegame.clearGameState = function()
+{
+	this.setPause(false);
+	balloons.destroyAll();
+}
+
 thegame.added = function()
 {
 	//Create sky
