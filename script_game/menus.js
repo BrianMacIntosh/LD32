@@ -50,6 +50,18 @@ menus.changeMode = function(mode, delay)
 			this.balloon_2player = null;
 		}
 		break;
+		
+	case this.MODE_TUTORIAL:
+		hud.hide();
+		break;
+		
+	case this.MODE_1PLAYER:
+		hud.hide();
+		break;
+		
+	case this.MODE_2PLAYER:
+		hud.hide();
+		break;
 	}
 	
 	this.nextMode = mode;
@@ -82,18 +94,21 @@ menus.enterMode = function(mode)
 		
 	case this.MODE_TUTORIAL:
 		//play the game
+		hud.hide();
 		new Balloon({playerIndex:0});
 		new Balloon({dummy:true});
 		break;
 		
 	case this.MODE_1PLAYER:
 		//play the game
+		hud.show(3);
 		new Balloon({playerIndex:0});
 		new Balloon({playerIndex:1, ai:true});
 		break;
 		
 	case this.MODE_2PLAYER:
 		//play the game
+		hud.show(3);
 		new Balloon({playerIndex:0});
 		new Balloon({playerIndex:1});
 		break;
@@ -166,3 +181,112 @@ menus.update = function()
 
 
 GameEngine.addObject(menus);
+
+
+hud = 
+{
+	record: [0,0],
+	
+	ICO_SCALEMAX: 2.2,
+	ICO_SCALESPEED: 1.6
+};
+
+hud.recordWin = function(playerIndex)
+{
+	//change in new mesh
+	if (this.record[playerIndex] < this.widgets[playerIndex].length)
+	{
+		var widget = this.widgets[playerIndex][this.record[playerIndex]];
+		widget.scale.set(this.ICO_SCALEMAX, this.ICO_SCALEMAX, 1);
+		widget.material.map = this.tex_win;
+		widget.material.needsUpdate = true;
+	}
+	
+	this.record[playerIndex]++;
+};
+
+hud.hide = function()
+{
+	this.show(0);
+	this.divider.visible = false;
+};
+
+hud.show = function(neededToWin)
+{
+	this.divider.visible = true;
+	
+	//reset record
+	for (var d = 0; d < this.record.length; d++) this.record[d] = 0;
+	
+	var i = 0;
+	for (; i < neededToWin; i++)
+	{
+		for (var d = 0; d < this.widgets.length; d++)
+		{
+			if (this.widgets[d][i])
+			{
+				this.widgets[d][i].visible = true;
+				this.widgets[d][i].material.map = this.tex_nowin;
+				this.widgets[d][i].material.needsUpdate = true;
+			}
+			else
+			{
+				this.widgets[d][i] = bmacSdk.GEO.makeSpriteMesh(this.tex_nowin, this.geo_win);
+				this.root.add(this.widgets[d][i]);
+				this.widgets[d][i].position.set((d*2-1) * (36*i + 36), 0, 0);
+			}
+		}
+	}
+	var j = i;
+	for (var d = 0; d < this.widgets.length; d++)
+	{
+		for (i = j; i < this.widgets[d].length; i++)
+		{
+			this.widgets[d][i].visible = false;
+		}
+	}
+};
+
+hud.added = function()
+{
+	this.tex_win = THREE.ImageUtils.loadTexture("media/ui_win.png");
+	this.tex_nowin = THREE.ImageUtils.loadTexture("media/ui_nowin.png");
+	this.tex_divider = THREE.ImageUtils.loadTexture("media/ui_divider.png");
+	this.geo_win = bmacSdk.GEO.makeSpriteGeo(41, 41);
+	this.geo_divider = bmacSdk.GEO.makeSpriteGeo(22, 63);
+	
+	this.root = new THREE.Object3D();
+	this.root.position.set(GameEngine.screenWidth/2, 40, -2);
+	GameEngine.scene.add(this.root);
+	
+	this.divider = bmacSdk.GEO.makeSpriteMesh(this.tex_divider, this.geo_divider);
+	this.root.add(this.divider);
+	
+	this.widgets = [[],[]];
+	this.hide();
+};
+
+hud.removed = function()
+{
+	
+};
+
+hud.update = function()
+{
+	//scale down large win icons
+	for (var d = 0; d < this.widgets.length; d++)
+	{
+		for (var i = 0; i < this.widgets[d].length; i++)
+		{
+			var widget = this.widgets[d][i];
+			if (widget.scale.x > 1)
+			{
+				widget.scale.x -= bmacSdk.deltaSec * this.ICO_SCALESPEED;
+				if (widget.scale.x < 1) widget.scale.x = 1;
+				widget.scale.y = widget.scale.x;
+			}
+		}
+	}
+};
+
+GameEngine.addObject(hud);

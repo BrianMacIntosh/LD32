@@ -75,6 +75,7 @@ Porcupine = function(shipOwner)
 	
 	this.body = thegame.world.CreateBody(porcupines.def_porky);
 	this.fixture = this.body.CreateFixture(porcupines.fdef_porky);
+	this.fixture.porcupine = this;
 	
 	this.mount();
 };
@@ -91,6 +92,7 @@ Porcupine.prototype.mount = function()
 {
 	if (!this.mounted)
 	{
+		this.owner.startFireCooldown();
 		this.mesh.material.map = porcupines.tex_porcupine;
 		this.mesh.material.needsUpdate = true;
 		this.mesh.rotation.z = 0;
@@ -143,6 +145,7 @@ Porcupine.prototype.update = function()
 			this.mount();
 			this.respawnTimer = undefined;
 		}
+		return;
 	}
 	
 	if (this.mounted)
@@ -157,33 +160,81 @@ Porcupine.prototype.update = function()
 		
 		if (this.owner.playerIndex !== undefined)
 		{
-			//player control
-			if (navigator)
+			if (this.owner.ai)
 			{
-				var gamepadList = navigator.getGamepads();
-				if (gamepadList)
+				//ai control
+				var enemy = undefined;
+				for (var i = 0; i < balloons.list.length; i++)
 				{
-					var gamepad = gamepadList[this.owner.playerIndex];
-					if (gamepad)
+					if (balloons.list[i] !== this.owner) enemy = balloons.list[i].mesh_base;
+				}
+				
+				var velocity = this.body.GetLinearVelocity();
+				var v = velocity.Length();
+				var ke = 0.5 * this.body.GetMass() * v * v;
+				
+				//determine what we are capable of reaching
+				var dy = (this.mesh.position.y - this.owner.mesh_basket.position.y) / thegame.B2_SCALE;
+				var gpe = this.body.GetMass() * dy * thegame.gravity.get_y();
+				var canRetreat = ke >= gpe;
+				var shouldRetreat = ke >= gpe && ke * 0.8 <= gpe;
+				
+				var dy = (this.mesh.position.y - enemy.position.y) / thegame.B2_SCALE;
+				var gpe = this.body.GetMass() * dy * thegame.gravity.get_y();
+				var canAttack = ke >= gpe;
+				
+				if (shouldRetreat)
+				{
+					enemy = this.owner.mesh_basket;
+				}
+				else if (canAttack)
+				{
+					enemy = enemy;
+				}
+				else if (canRetreat)
+				{
+					enemy = this.owner.mesh_basket;
+				}
+				else
+				{
+					enemy = undefined;
+				}
+				
+				var sourceToTargetX = (enemy ? enemy.position.x : 0) - this.mesh.position.x;
+				var sourceToTargetY = (enemy ? enemy.position.y : 5000) - this.mesh.position.y;
+				var angToTarget = Math.atan2(sourceToTargetY, sourceToTargetX);
+				var myAng = Math.atan2(velocity.get_y(), velocity.get_x());
+				
+				if ((myAng - angToTarget + Math.PI*2) % (Math.PI*2) > Math.PI)
+					x = 1;
+				else
+					x = -1;
+			}
+			else
+			{
+				//player control
+				if (navigator)
+				{
+					var gamepadList = navigator.getGamepads();
+					if (gamepadList)
 					{
-						x = gamepad.axes[0];
-						y = gamepad.axes[1];
-						
-						x += gamepad.buttons[15].value;
-						x -= gamepad.buttons[14].value;
+						var gamepad = gamepadList[this.owner.playerIndex];
+						if (gamepad)
+						{
+							x = gamepad.axes[0];
+							y = gamepad.axes[1];
+							
+							x += gamepad.buttons[15].value;
+							x -= gamepad.buttons[14].value;
+						}
 					}
 				}
+				if (x == 0)
+				{
+					if (GameEngine.keyboard.pressed(balloons.controls[this.owner.playerIndex].left))  x--;
+					if (GameEngine.keyboard.pressed(balloons.controls[this.owner.playerIndex].right)) x++;
+				}
 			}
-			if (x == 0)
-			{
-				if (GameEngine.keyboard.pressed(balloons.controls[this.owner.playerIndex].left))  x--;
-				if (GameEngine.keyboard.pressed(balloons.controls[this.owner.playerIndex].right)) x++;
-			}
-		}
-		else if (this.playerIndex !== undefined)
-		{
-			//ai control
-			
 		}
 		
 		if (x > 1) x = 1;
@@ -269,6 +320,11 @@ Porcupine.prototype.onBeginContact = function(contact)
 		
 		//Play damage sound
 		AUDIOMANAGER.playSound(porcupines.audio.dodamage);
+	}
+	else if (this.fixture == fixtureA && other.porcupine) //'A' check to play only once
+	{
+		//Play collide sound
+		AUDIOMANAGER.playSound(porcupines.audio.collide);
 	}
 	else if (this.clear && other.basketFor === this.owner)
 	{

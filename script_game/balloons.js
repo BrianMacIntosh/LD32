@@ -11,13 +11,14 @@ balloons =
 	CONTROL_FORCE: 9.5,
 	IMPACT_COOLDOWN: 0.5,
 	BUOY_LOSS_PER_JET: 0.03,
+	AI_FIRE_COOLDOWN: 1,
 	
 	RADIUS: 55,
 	
 	controls:
 	[
 		{up:"w",down:"s",left:"a",right:"d",fire_left:"q",fire_right:"e"},
-		{up:"i",down:"j",left:"k",right:"l",fire_left:"u",fire_right:"o"}
+		{up:"i",down:"k",left:"j",right:"l",fire_left:"u",fire_right:"o"}
 	]
 };
 
@@ -344,8 +345,18 @@ Balloon.prototype.destroyBodies = function()
 	}
 }
 
+Balloon.prototype.startFireCooldown = function()
+{
+	if (this.ai)
+		this.fireCooldown = balloons.AI_FIRE_COOLDOWN;
+}
+
 Balloon.prototype.respawn = function()
 {
+	//Respawn above the screen at a random X
+	this.spawnX = (Math.random() * (GameEngine.screenWidth-balloons.RADIUS*2) + balloons.RADIUS) / thegame.B2_SCALE;
+	this.spawnY = -200 / thegame.B2_SCALE;
+	
 	this.rebuildBodies();
 	
 	//clear jets
@@ -451,6 +462,7 @@ Balloon.prototype.update = function()
 	if (!this.mesh_base) return;
 	
 	if (this.impactCooldown > 0) this.impactCooldown -= bmacSdk.deltaSec;
+	if (this.fireCooldown > 0) this.fireCooldown -= bmacSdk.deltaSec;
 	
 	//kill
 	if (this.killCeiling !== undefined && this.mesh_base.position.y < this.killCeiling)
@@ -466,6 +478,8 @@ Balloon.prototype.update = function()
 		if (!this.mesh_sign)
 		{
 			this.respawn();
+			if (this.playerIndex === 0 || this.playerIndex === 1)
+				hud.recordWin(1-this.playerIndex);
 		}
 	}
 	
@@ -514,7 +528,32 @@ Balloon.prototype.update = function()
 			if (this.ai)
 			{
 				//ai control
-				
+				var enemy = undefined;
+				for (var i = 0; i < balloons.list.length; i++)
+				{
+					if (balloons.list[i] !== this) enemy = balloons.list[i];
+				}
+				if (enemy)
+				{
+					var sourceToTargetDist = bmacSdk.GEO.distance(this.mesh_basket.position, enemy.mesh_base.position);
+					var sourceToTargetX = enemy.mesh_base.position.x - this.mesh_basket.position.x;
+					if (this.mesh_base.position.y > GameEngine.screenHeight - 160)
+					{
+						//try not to die
+						y = -1;
+					}
+					else if (sourceToTargetDist <= 360)
+					{
+						//launch toward enemy
+						fire = sourceToTargetX < 0 ? -1 : 1;
+					}
+					else
+					{
+						//move closer
+						x = sourceToTargetX;
+						if (this.mesh_base.position.y > 200) y = -1;
+					}
+				}
 			}
 			else
 			{
@@ -596,6 +635,8 @@ Balloon.prototype.update = function()
 			this.mesh_launcher.material.needsUpdate = true;
 		}
 	}
+	
+	if (this.fireCooldown && this.fireCooldown > 0) fire = false;
 	
 	if (this.porcupine)
 	{
