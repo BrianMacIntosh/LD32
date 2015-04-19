@@ -28,11 +28,25 @@ menus.added = function()
 	this.mesh_fader.material.opacity = 0.5;
 	this.mesh_fader.position.set(GameEngine.screenWidth/2, GameEngine.screenHeight/2, -10);
 	
+	//Create pause menu
 	this.tex_paused = THREE.ImageUtils.loadTexture("media/paused.png");
 	this.geo_paused = bmacSdk.GEO.makeSpriteGeo(116, 37);
 	this.mesh_paused = bmacSdk.GEO.makeSpriteMesh(this.tex_paused, this.geo_paused);
 	this.mesh_paused.position.set(GameEngine.screenWidth/2, 250, -8);
 	GameEngine.scene.add(this.mesh_paused);
+	
+	this.pauseButtons = [];
+	this.geo_but = bmacSdk.GEO.makeSpriteGeo(210, 65);
+	
+	this.tex_but_menu = THREE.ImageUtils.loadTexture("media/but_menu.png");
+	this.pauseButtons[0] = bmacSdk.GEO.makeSpriteMesh(this.tex_but_menu, this.geo_but);
+	this.mesh_paused.add(this.pauseButtons[0]);
+	this.pauseButtons[0].position.set(0, 110, 0);
+	
+	this.tex_but_resume = THREE.ImageUtils.loadTexture("media/but_resume.png");
+	this.pauseButtons[1] = bmacSdk.GEO.makeSpriteMesh(this.tex_but_resume, this.geo_but);
+	this.mesh_paused.add(this.pauseButtons[1]);
+	this.pauseButtons[1].position.set(0, 160, 0);
 	
 	this.changeMode(this.MODE_MAIN);
 	this.pauseGame(false);
@@ -42,6 +56,8 @@ menus.pauseGame = function(state)
 {
 	this.mesh_fader.visible = state;
 	this.mesh_paused.visible = state;
+	for (var i = 0; i < this.pauseButtons.length; i++)
+		this.pauseButtons[i].visible = state;
 };
 
 menus.changeMode = function(mode, delay)
@@ -95,12 +111,13 @@ menus.changeMode = function(mode, delay)
 
 menus.enterMode = function(mode)
 {
+	this.currentOption = undefined;
+	
 	//Enter new mode
 	switch (mode)
 	{
 	case this.MODE_MAIN:
 		//main menu
-		this.currentOption = undefined;
 		this.balloon_tutorial = new Balloon({
 			signtex:this.tex_tutorial, signgeo:this.geo_sign,
 			spawnX:GameEngine.screenWidth/4, spawnY:GameEngine.screenHeight+balloons.RADIUS+60,
@@ -172,8 +189,7 @@ menus.update = function()
 			gamepad = gamepadList[0];
 	}
 	
-	var advance = GameEngine.keyboard.pressed("space") || GameEngine.keyboard.pressed("return")
-		|| GameEngine.mouse.mouseUpNew[1] || gamepad && gamepad.buttons[0].pressed;
+	var advance = bmacSdk.INPUT.actionMenuAccept();
 	
 	switch (this.currentMode)
 	{
@@ -191,31 +207,19 @@ menus.update = function()
 			//Mouse control
 			this.currentOption = option;
 		}
-		else if ((gamepad && gamepad.buttons[14].pressed) || GameEngine.keyboard.pressed("left") || (gamepad.axes[0] < -0.3 && this.lastStickX >= -0.3))
+		else if (bmacSdk.INPUT.actionMenuLeft())
 		{
-			if (!this.pressed)
-			{
-				this.pressed = true;
-				if (this.currentOption !== undefined)
-					this.currentOption--;
-				else
-					this.currentOption = 2;
-			}
+			if (this.currentOption !== undefined)
+				this.currentOption--;
+			else
+				this.currentOption = 2;
 		}
-		else if ((gamepad && gamepad.buttons[15].pressed) || GameEngine.keyboard.pressed("right") || (gamepad.axes[0] > 0.3 && this.lastStickX <= 0.3))
+		else if (bmacSdk.INPUT.actionMenuRight())
 		{
-			if (!this.pressed)
-			{
-				this.pressed = true;
-				if (this.currentOption !== undefined)
-					this.currentOption++;
-				else
-					this.currentOption = 0;
-			}
-		}
-		else
-		{
-			this.pressed = false;
+			if (this.currentOption !== undefined)
+				this.currentOption++;
+			else
+				this.currentOption = 0;
 		}
 		
 		//Wrap
@@ -242,23 +246,40 @@ menus.update = function()
 	case this.MODE_2PLAYER:
 	case this.MODE_1PLAYER:
 	case this.MODE_TUTORIAL:
-		if ((gamepad && gamepad.buttons[9].pressed) || GameEngine.keyboard.pressed("escape"))
+		if (thegame.paused)
 		{
-			if (!this.pressed)
+			//control the pause menu
+			if (bmacSdk.INPUT.actionMenuCancel() || bmacSdk.INPUT.actionGamePause())
 			{
-				this.pressed = true;
 				thegame.togglePause();
+			}
+			else if (bmacSdk.INPUT.actionMenuUp())
+			{
+				if (this.currentOption !== undefined)
+					this.currentOption--;
+				else
+					this.currentOption = 1;
+			}
+			else if (bmacSdk.INPUT.actionMenuDown())
+			{
+				if (this.currentOption !== undefined)
+					this.currentOption++;
+				else
+					this.currentOption = 0;
 			}
 		}
 		else
 		{
-			this.pressed = false;
+			//control the in-game hud
+			if (bmacSdk.INPUT.actionGamePause())
+			{
+				thegame.togglePause();
+			}
 		}
 		break;
 	}
 	
 	this.lastMouse = mousePos;
-	if (gamepad) this.lastStickX = gamepad.axes[0];
 };
 
 

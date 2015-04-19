@@ -584,13 +584,13 @@ Balloon.prototype.update = function()
 				}
 				if (x == 0 && y == 0)
 				{
-					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].left))  x--;
-					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].right)) x++;
-					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].up))    y--;
-					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].down))  y++;
+					if (GameEngine.keyboard.keyDown(balloons.controls[this.playerIndex].left))  x--;
+					if (GameEngine.keyboard.keyDown(balloons.controls[this.playerIndex].right)) x++;
+					if (GameEngine.keyboard.keyDown(balloons.controls[this.playerIndex].up))    y--;
+					if (GameEngine.keyboard.keyDown(balloons.controls[this.playerIndex].down))  y++;
 					
-					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].fire_left)) fire = -1;
-					if (GameEngine.keyboard.pressed(balloons.controls[this.playerIndex].fire_right)) fire = 1;
+					if (GameEngine.keyboard.keyPressed(balloons.controls[this.playerIndex].fire_left)) fire = -1;
+					if (GameEngine.keyboard.keyPressed(balloons.controls[this.playerIndex].fire_right)) fire = 1;
 				}
 			}
 		}

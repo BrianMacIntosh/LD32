@@ -231,8 +231,8 @@ Porcupine.prototype.update = function()
 				}
 				if (x == 0)
 				{
-					if (GameEngine.keyboard.pressed(balloons.controls[this.owner.playerIndex].left))  x--;
-					if (GameEngine.keyboard.pressed(balloons.controls[this.owner.playerIndex].right)) x++;
+					if (GameEngine.keyboard.keyDown(balloons.controls[this.owner.playerIndex].left))  x--;
+					if (GameEngine.keyboard.keyDown(balloons.controls[this.owner.playerIndex].right)) x++;
 				}
 			}
 		}

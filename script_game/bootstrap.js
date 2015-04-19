@@ -145,7 +145,11 @@ thegame.update = function()
 {
 	if (this.paused) return;
 	
-	this.world.Step(bmacSdk.deltaSec, 2, 2);
+	//skip long timestep
+	if (!bmacSdk.wasUnfocused)
+	{
+		this.world.Step(bmacSdk.deltaSec, 2, 2);
+	}
 	
 	//Scroll clouds
 	this.tex_clouds.offset.set(this.tex_clouds.offset.x + bmacSdk.deltaSec*0.03, 0);

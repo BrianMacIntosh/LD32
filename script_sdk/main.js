@@ -6,6 +6,7 @@ bmacSdk =
 	_eatFrame: false,
 	
 	isFocused: true,
+	wasUnfocused: true,
 	domAttached: false,
 	deltaSec: 0,
 	engines: []
@@ -100,6 +101,8 @@ bmacSdk.Engine.prototype._attachDom = function()
 
 bmacSdk.Engine.prototype._animate = function()
 {
+	this.keyboard.update();
+	
 	//Calc mouse pos
 	this.mousePosWorld = new Vector2(MOUSEPOSREL(this.canvasDiv));
 	this.mousePosWorld.x += this.mainCamera.position.x;
@@ -133,9 +136,19 @@ bmacSdk._animate = function()
 	
 	if (!bmacSdk.isFocused)
 	{
+		bmacSdk.wasUnfocused = true;
 		return;
 	}
 	
+	bmacSdk.INPUT.update();
+	
 	for (var c = 0; c < bmacSdk.engines.length; c++)
+	{
 		bmacSdk.engines[c]._animate();
+	}
+	
+	if (bmacSdk.wasUnfocused)
+	{
+		bmacSdk.wasUnfocused = false;
+	}
 };
