@@ -277,7 +277,7 @@ bmacSdk.INPUT.cloneGamepadState = function(source)
 
 bmacSdk.INPUT.update = function()
 {
-	if (navigator)
+	if (navigator && navigator.getGamepads)
 	{
 		//TODO: so much garbage
 		this.oldGamepads = this.cloneGamepadState(this.gamepads);

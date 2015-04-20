@@ -1,0 +1,24 @@
+[Justin]Watchmen: Pushing the enemy down with your ballon is OP
+BMacZero: Hmm, maybe the AI just needs to be more aware of pushing tactics
+[Justin]Watchmen: The AI is already is the ballon popping master
+BMacZero: Yeah
+[Justin]Watchmen: But yeah, if you want to ramp the difficulty up :P
+BMacZero: I hope I have time to add difficulty settings that disable parts of the AI
+[Justin]Watchmen: For the comp, I think it's nice for people to figure out they can beat the AI by pushing the ballon, like they've "outsmarted" the AI, but it would have to be fixed in a real game
+[Justin]Watchmen: - As a note of polish, I would "flash" the "Press Q or E to launch your (beaver?)" until they press one of the keys
+BMacZero: Porcupine
+BMacZero: Duh : D
+[Justin]Watchmen: It is so important that they do this, even if they don't look at your tutorial, I think you should hilight it
+BMacZero: mm
+[Justin]Watchmen: - You should name your game something to do with Porcupines :D
+BMacZero: Yeah, that's the plan, hah
+[Justin]Watchmen: - And the game needs to "end", although 5 may be too short
+[Justin]Watchmen: If you want to bump up how much people play the game, this game would be perfect for meta statistics
+[Justin]Watchmen: Low level: Tell the player how many games they have won, compared to the AI/Player 2
+[Justin]Watchmen: Also Low Level: Give them a % times won over the AI, because they can try and raise it
+[Justin]Watchmen: Medium Level: Tell them the best game they have ever done. "You won 5 to 1 in 2 minutes"
+[Justin]Watchmen: "You wont 5 to 1 in 1 min 50 secs
+[Justin]Watchmen: "You won 5 to 0 in 1 min
+[Justin]Watchmen: (Example of it updating)
+[Justin]Watchmen: Just food for thought
+[Justin]Watchmen: (Just rewards people for playing the game over and over again, which I wanted to do anyways. :))

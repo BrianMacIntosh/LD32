@@ -68,8 +68,8 @@ thegame.added = function()
 	this.dom_kills = [document.getElementById("kills0"),document.getElementById("kills1")];
 	this.dom_deaths = [document.getElementById("deaths0"),document.getElementById("deaths1")];
 	this.dom_ratio = [document.getElementById("ratio0"),document.getElementById("ratio1")];
-	this.kills = [5,1];
-	this.deaths = [1,5];
+	this.kills = [0,0];
+	this.deaths = [0,0];
 	this.updateKDR();
 	
 	//Create sky

@@ -233,13 +233,6 @@ menus.update = function()
 	}
 	
 	var mousePos = MOUSEPOSREL(GameEngine.canvasDiv);
-	var gamepad = undefined;
-	if (navigator)
-	{
-		var gamepadList = navigator.getGamepads();
-		if (gamepadList)
-			gamepad = gamepadList[0];
-	}
 	
 	var advance = bmacSdk.INPUT.actionMenuAccept();
 	

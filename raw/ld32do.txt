@@ -1,0 +1,7 @@
+TODO:
+
+music
+difficulty settings
+ai avoid own balloon
+ai handle pushing
+title
