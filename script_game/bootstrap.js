@@ -64,6 +64,39 @@ thegame.updateKDR = function()
 
 thegame.added = function()
 {
+	//load atlas
+	this.atlas = bmacSdk.GEO.loadAtlas("media/atlas.png",806,409,{
+	"air_plume":[117,377,36,30],
+	"balloon_base":[694,0,111,111],
+	"balloon_extra":[694,112,111,111],
+	"balloon_target":[452,264,113,113],
+	"basket":[658,283,64,60],
+	"bg":[0,0,256,150],
+	"but_1player":[0,151,225,98],
+	"but_1player_sel":[257,0,225,98],
+	"but_2player":[257,99,225,98],
+	"but_2player_sel":[0,250,225,98],
+	"but_menu":[483,0,210,65],
+	"but_menu_sel":[483,66,210,65],
+	"but_resume":[483,132,210,65],
+	"but_resume_sel":[452,198,210,65],
+	"but_tutorial":[226,198,225,98],
+	"but_tutorial_sel":[226,297,225,98],
+	"ctrl_gamepad":[566,264,91,58],
+	"ctrl_keyboard1":[566,323,91,58],
+	"ctrl_keyboard2":[663,224,91,58],
+	"knot":[226,164,12,12],
+	"launcher":[0,387,100,22],
+	"paused":[0,349,116,37],
+	"porcupine":[755,224,46,63],
+	"porcupine_arm":[226,151,13,12],
+	"porcupine_fly":[658,344,46,63],
+	"ready":[117,349,96,27],
+	"rope":[788,288,6,111],
+	"ui_divider":[765,288,22,63],
+	"ui_nowin":[723,288,41,41],
+	"ui_win":[705,344,41,41]});
+	
 	//load k/d
 	this.dom_kills = [document.getElementById("kills0"),document.getElementById("kills1")];
 	this.dom_deaths = [document.getElementById("deaths0"),document.getElementById("deaths1")];
@@ -73,10 +106,9 @@ thegame.added = function()
 	this.updateKDR();
 	
 	//Create sky
-	this.tex_sky = THREE.ImageUtils.loadTexture("media/bg.png");
-	this.geo_sky = bmacSdk.GEO.makeSpriteGeo(GameEngine.screenWidth, GameEngine.screenHeight);
-	this.mesh_sky = bmacSdk.GEO.makeSpriteMesh(this.tex_sky, this.geo_sky);
+	this.mesh_sky = bmacSdk.GEO.makeAtlasMesh(this.atlas,"bg");
 	this.mesh_sky.position.set(GameEngine.screenWidth/2, GameEngine.screenHeight/2, -99);
+	this.mesh_sky.scale.set(GameEngine.screenWidth/this.atlas.data["bg"][2],GameEngine.screenHeight/this.atlas.data["bg"][3],1);
 	GameEngine.scene.add(this.mesh_sky);
 	
 	//Create clouds

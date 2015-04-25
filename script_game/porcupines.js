@@ -18,14 +18,6 @@ porcupines =
 
 porcupines.added = function()
 {
-	this.tex_porcupine = THREE.ImageUtils.loadTexture("media/porcupine.png");
-	this.tex_porcupine_fly = THREE.ImageUtils.loadTexture("media/porcupine_fly.png");
-	this.tex_porcupine_fly_inv = THREE.ImageUtils.loadTexture("media/porcupine_fly_inv.png");
-	this.geo_porcupine = bmacSdk.GEO.makeSpriteGeo(this.width, this.height);
-	
-	this.tex_arm = THREE.ImageUtils.loadTexture("media/porcupine_arm.png");
-	this.geo_arm = bmacSdk.GEO.makeSpriteGeo(13, 12);
-	
 	//body defs
 	this.def_porky = new Box2D.b2BodyDef();
 	this.def_porky.set_type(Box2D.b2_dynamicBody);
@@ -61,10 +53,10 @@ Porcupine = function(shipOwner)
 	this.owner = shipOwner;
 	
 	//create stuff
-	this.mesh = bmacSdk.GEO.makeSpriteMesh(porcupines.tex_porcupine, porcupines.geo_porcupine);
+	this.mesh = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"porcupine",true);
 	GameEngine.scene.add(this.mesh);
 	
-	this.mesh_arm = bmacSdk.GEO.makeSpriteMesh(porcupines.tex_arm, porcupines.geo_arm);
+	this.mesh_arm = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"porcupine_arm");
 	this.mesh_arm.position.set(-4, 9, 15);
 	this.mesh.add(this.mesh_arm);
 	
@@ -99,8 +91,8 @@ Porcupine.prototype.mount = function()
 	if (!this.mounted)
 	{
 		this.owner.startFireCooldown();
-		this.mesh.material.map = porcupines.tex_porcupine;
-		this.mesh.material.needsUpdate = true;
+		bmacSdk.GEO.setAtlasMeshKey(this.mesh,"porcupine");
+		bmacSdk.GEO.setAtlasMeshFlip(this.mesh,false,false);
 		this.mesh.rotation.z = 0;
 		this.mesh_arm.visible = true;
 		this.clear = false;
@@ -116,8 +108,7 @@ Porcupine.prototype.launch = function(quat)
 {
 	if (this.mounted)
 	{
-		this.mesh.material.map = porcupines.tex_porcupine_fly;
-		this.mesh.material.needsUpdate = true;
+		bmacSdk.GEO.setAtlasMeshKey(this.mesh,"porcupine_fly");
 		this.mesh_arm.visible = false;
 		this.clear = false;
 		this.wantsMount = false;
@@ -255,12 +246,7 @@ Porcupine.prototype.update = function()
 		this.mesh.rotation.z = angle + Math.PI/2;
 		
 		//Flip sprite
-		var desiredSprite = velocity.get_x() > 0 ? porcupines.tex_porcupine_fly : porcupines.tex_porcupine_fly_inv;
-		if (desiredSprite != this.mesh.material.map)
-		{
-			this.mesh.material.map = desiredSprite;
-			this.mesh.material.needsUpdate = true;
-		}
+		bmacSdk.GEO.setAtlasMeshFlip(this.mesh, velocity.get_x()<0, false);
 		
 		if (this.wantsMount)
 		{

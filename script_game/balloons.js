@@ -38,25 +38,8 @@ balloons.added = function()
 	this.tex_airjet.wrapT = THREE.RepeatWrapping;
 	this.geo_airjet = bmacSdk.GEO.makeSpriteGeo(16, 32);
 	
-	this.tex_airplume = THREE.ImageUtils.loadTexture("media/air_plume.png");
-	this.geo_airplume = bmacSdk.GEO.makeSpriteGeo(36, 30);
-	
 	this.ROPE_SEG_LEN = (this.ROPE_LEN/this.ROPE_SEGS) / thegame.B2_SCALE;
-	
-	this.tex_base = THREE.ImageUtils.loadTexture("media/balloon_base.png");
-	this.tex_basetarget = THREE.ImageUtils.loadTexture("media/balloon_target.png");
-	this.tex_extra = THREE.ImageUtils.loadTexture("media/balloon_extra.png");
-	this.tex_basket = THREE.ImageUtils.loadTexture("media/basket.png");
-	this.tex_rope = THREE.ImageUtils.loadTexture("media/rope.png");
-	this.tex_knot = THREE.ImageUtils.loadTexture("media/knot.png");
-	this.tex_launcher = THREE.ImageUtils.loadTexture("media/launcher.png");
-	this.tex_launcher_inv = THREE.ImageUtils.loadTexture("media/launcher_inv.png");
-	
-	this.geo_balloon = bmacSdk.GEO.makeSpriteGeo(111, 111);
-	this.geo_basket = bmacSdk.GEO.makeSpriteGeo(64, 60);
-	this.geo_rope = bmacSdk.GEO.makeSpriteGeo(6, this.ROPE_LEN/this.ROPE_SEGS + 1);
-	this.geo_knot = bmacSdk.GEO.makeSpriteGeo(12, 12);
-	this.geo_launcher = bmacSdk.GEO.makeSpriteGeo(100, 22);
+	this.ROPE_PIXEL_LEN = this.ROPE_LEN/this.ROPE_SEGS + 1;
 	
 	//Balloon defs
 	this.def_balloon = new Box2D.b2BodyDef();
@@ -160,7 +143,7 @@ GameEngine.addObject(balloons);
 //-playerIndex: set if this is a player balloon
 //-ai
 //-dummy: true if this is a target-practice balloon
-//-signtex signgeo: pass in the stuff
+//-signtex: pass in the stuff
 //-spawnX spawnY: override spawn point
 //-targetX targetY: override dummy targets
 Balloon = function(params)
@@ -203,26 +186,22 @@ Balloon = function(params)
 	else
 		this.targetY = this.spawnY;
 	
-	var material = new THREE.MeshBasicMaterial(
-	{
-		map:(params.dummy ? balloons.tex_basetarget : balloons.tex_base),
-		transparent:true, color:(this.playerIndex !== undefined ? balloons.colors[this.playerIndex] : 0xffffffff)
-	});
-	this.mesh_base = new THREE.Mesh(balloons.geo_balloon, material);
+	this.mesh_base = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,params.dummy?"balloon_target":"balloon_base");
+	this.mesh_base.material.color.setHex(this.playerIndex !== undefined ? balloons.colors[this.playerIndex] : 0xffffff);
 	GameEngine.scene.add(this.mesh_base);
 	
 	//balloon deco
-	this.mesh_extra = bmacSdk.GEO.makeSpriteMesh(balloons.tex_extra, balloons.geo_balloon);
+	this.mesh_extra = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"balloon_extra");
 	this.mesh_base.add(this.mesh_extra);
 	this.mesh_extra.position.set(0, 0, 1);
 	
-	this.mesh_basket = bmacSdk.GEO.makeSpriteMesh(balloons.tex_basket, balloons.geo_basket);
+	this.mesh_basket = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"basket");
 	GameEngine.scene.add(this.mesh_basket);
 	
 	//sign
-	if (params.signtex && params.signgeo)
+	if (params.signtex)
 	{
-		this.mesh_sign = bmacSdk.GEO.makeSpriteMesh(params.signtex, params.signgeo);
+		this.mesh_sign = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,params.signtex,true);
 		this.mesh_basket.add(this.mesh_sign);
 		this.mesh_sign.position.set(0, 20, 1);
 	}
@@ -230,16 +209,16 @@ Balloon = function(params)
 	//create launcher assets
 	if (this.playerIndex !== undefined)
 	{
-		this.mesh_launcher = bmacSdk.GEO.makeSpriteMesh(balloons.tex_launcher, balloons.geo_launcher);
+		this.mesh_launcher = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"launcher",true);
 		this.mesh_launcher.position.set(0, 0, 20);
 		this.mesh_basket.add(this.mesh_launcher);
 	}
 	
 	//knots
-	var tempMesh = bmacSdk.GEO.makeSpriteMesh(balloons.tex_knot, balloons.geo_knot);
+	var tempMesh = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"knot");
 	this.mesh_base.add(tempMesh);
 	tempMesh.position.set(-balloons.RADIUS, 0, 5);
-	var tempMesh = bmacSdk.GEO.makeSpriteMesh(balloons.tex_knot, balloons.geo_knot);
+	var tempMesh = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"knot");
 	this.mesh_base.add(tempMesh);
 	tempMesh.position.set(balloons.RADIUS, 0, 5);
 	
@@ -284,11 +263,7 @@ Balloon.prototype.setSelected = function(state, tex, tex_sel)
 	if (this.mesh_sign)
 	{
 		var desired = state ? tex_sel : tex;
-		if (this.mesh_sign.material.map != desired)
-		{
-			this.mesh_sign.material.map = desired;
-			this.mesh_sign.material.needsUpdate = true;
-		}
+		bmacSdk.GEO.setAtlasMeshKey(this.mesh_sign,desired);
 		this.setBalloonColor(state ? 0xfffaa7 : 0xffffff);
 	}
 }
@@ -453,7 +428,8 @@ Balloon.prototype.rebuildBodies = function()
 			//Create mesh
 			if (!ropeobj.mesh)
 			{
-				ropeobj.mesh = bmacSdk.GEO.makeSpriteMesh(balloons.tex_rope, balloons.geo_rope);
+				ropeobj.mesh = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"rope");
+				ropeobj.mesh.scale.y = balloons.ROPE_PIXEL_LEN/thegame.atlas.data["rope"][3];
 				GameEngine.scene.add(ropeobj.mesh);
 			}
 			
@@ -696,15 +672,7 @@ Balloon.prototype.update = function()
 		//invert graphic if aim is flipped
 		var temp = thegame.X_AXIS.clone();
 		temp.applyQuaternion(this.mesh_launcher.quaternion);
-		if (temp.x < 0)
-			var targetMap = balloons.tex_launcher_inv;
-		else
-			var targetMap = balloons.tex_launcher;
-		if (this.mesh_launcher.material.map != targetMap)
-		{
-			this.mesh_launcher.material.map = targetMap;
-			this.mesh_launcher.material.needsUpdate = true;
-		}
+		bmacSdk.GEO.setAtlasMeshFlip(this.mesh_launcher,false,temp.x<0);
 	}
 	
 	if (this.fireCooldown && this.fireCooldown > 0) fire = false;
@@ -759,7 +727,7 @@ AirJet = function(parent, normal)
 	this.mesh.quaternion.setFromAxisAngle(thegame.Z_AXIS, Math.atan2(normal.y, normal.x)-Math.PI/2);
 	parent.add(this.mesh);
 	
-	this.mesh_plume = bmacSdk.GEO.makeSpriteMesh(balloons.tex_airplume, balloons.geo_airplume);
+	this.mesh_plume = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"air_plume");
 	this.mesh_plume.position.set(0, 16, 2);
 	this.mesh.add(this.mesh_plume);
 	

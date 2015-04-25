@@ -28,14 +28,7 @@ menus.added = function()
 	
 	this.dom_kdr = [document.getElementById("kdr0"),document.getElementById("kdr1")];
 	
-	this.tex_tutorial = THREE.ImageUtils.loadTexture("media/but_tutorial.png");
-	this.tex_1player = THREE.ImageUtils.loadTexture("media/but_1player.png");
-	this.tex_2player = THREE.ImageUtils.loadTexture("media/but_2player.png");
-	this.tex_tutorial_sel = THREE.ImageUtils.loadTexture("media/but_tutorial_sel.png");
-	this.tex_1player_sel = THREE.ImageUtils.loadTexture("media/but_1player_sel.png");
-	this.tex_2player_sel = THREE.ImageUtils.loadTexture("media/but_2player_sel.png");
 	this.tex_white = THREE.ImageUtils.loadTexture("media/white.png");
-	this.geo_sign = bmacSdk.GEO.makeSpriteGeo(225, 98);
 	
 	this.geo_screen = bmacSdk.GEO.makeSpriteGeo(GameEngine.screenWidth, GameEngine.screenHeight);
 	
@@ -46,28 +39,23 @@ menus.added = function()
 	this.mesh_fader.position.set(GameEngine.screenWidth/2, GameEngine.screenHeight/2, -10);
 	
 	//Create pause menu
-	this.tex_paused = THREE.ImageUtils.loadTexture("media/paused.png");
-	this.geo_paused = bmacSdk.GEO.makeSpriteGeo(116, 37);
-	this.mesh_paused = bmacSdk.GEO.makeSpriteMesh(this.tex_paused, this.geo_paused);
+	this.mesh_paused = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"paused");
 	this.mesh_paused.position.set(GameEngine.screenWidth/2, 250, -8);
 	GameEngine.scene.add(this.mesh_paused);
 	
 	this.pauseButtons = [];
-	this.geo_but = bmacSdk.GEO.makeSpriteGeo(210, 65);
 	
-	this.tex_but_menu = THREE.ImageUtils.loadTexture("media/but_menu.png");
-	this.pauseButtons[0] = bmacSdk.GEO.makeSpriteMesh(this.tex_but_menu, this.geo_but);
+	this.pauseButtons[0] = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"but_menu",true);
 	this.mesh_paused.add(this.pauseButtons[0]);
 	this.pauseButtons[0].position.set(0, 110, 0);
-	this.pauseButtons[0].state_neutral = this.pauseButtons[0].material.map;
-	this.pauseButtons[0].state_selected = THREE.ImageUtils.loadTexture("media/but_menu_sel.png");
+	this.pauseButtons[0].state_neutral = "but_menu";
+	this.pauseButtons[0].state_selected = "but_menu_sel";
 	
-	this.tex_but_resume = THREE.ImageUtils.loadTexture("media/but_resume.png");
-	this.pauseButtons[1] = bmacSdk.GEO.makeSpriteMesh(this.tex_but_resume, this.geo_but);
+	this.pauseButtons[1] = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"but_resume",true);
 	this.mesh_paused.add(this.pauseButtons[1]);
 	this.pauseButtons[1].position.set(0, 160, 0);
-	this.pauseButtons[1].state_neutral = this.pauseButtons[1].material.map;
-	this.pauseButtons[1].state_selected = THREE.ImageUtils.loadTexture("media/but_resume_sel.png");
+	this.pauseButtons[1].state_neutral = "but_resume";
+	this.pauseButtons[1].state_selected = "but_resume_sel";
 	
 	this.changeMode(this.MODE_MAIN);
 	this.pauseGame(false);
@@ -157,17 +145,17 @@ menus.enterMode = function(mode)
 	case this.MODE_MAIN:
 		//main menu
 		this.balloon_tutorial = new Balloon({
-			signtex:this.tex_tutorial, signgeo:this.geo_sign,
+			signtex:"but_tutorial",
 			spawnX:GameEngine.screenWidth/4, spawnY:GameEngine.screenHeight+balloons.RADIUS+60,
 			targetY:GameEngine.screenHeight/2 - balloons.RADIUS
 		});
 		this.balloon_1player = new Balloon({
-			signtex:this.tex_1player, signgeo:this.geo_sign,
+			signtex:"but_1player",
 			spawnX:GameEngine.screenWidth*2/4, spawnY:GameEngine.screenHeight+balloons.RADIUS+60,
 			targetY:GameEngine.screenHeight/2 - balloons.RADIUS
 		});
 		this.balloon_2player = new Balloon({
-			signtex:this.tex_2player, signgeo:this.geo_sign,
+			signtex:"but_2player",
 			spawnX:GameEngine.screenWidth*3/4, spawnY:GameEngine.screenHeight+balloons.RADIUS+60,
 			targetY:GameEngine.screenHeight/2 - balloons.RADIUS
 		});
@@ -272,9 +260,9 @@ menus.update = function()
 		else if (this.currentOption < 0) this.currentOption = 2;
 		
 		//Update highlights
-		this.balloon_2player.setSelected(!advance && this.currentOption === 2, this.tex_2player, this.tex_2player_sel);
-		this.balloon_1player.setSelected(!advance && this.currentOption === 1, this.tex_1player, this.tex_1player_sel);
-		this.balloon_tutorial.setSelected(!advance && this.currentOption === 0, this.tex_tutorial, this.tex_tutorial_sel);
+		this.balloon_2player.setSelected(!advance && this.currentOption === 2, "but_2player","but_2player_sel");
+		this.balloon_1player.setSelected(!advance && this.currentOption === 1, "but_1player","but_1player_sel");
+		this.balloon_tutorial.setSelected(!advance && this.currentOption === 0, "but_tutorial","but_tutorial_sel");
 		
 		if (advance)
 		{
@@ -326,16 +314,10 @@ menus.update = function()
 			//Update highlights
 			for (var i = 0; i < this.pauseButtons.length; i++)
 			{
-				var desired;
 				if (!advance && this.currentOption === i)
-					desired = this.pauseButtons[i].state_selected;
+					bmacSdk.GEO.setAtlasMeshKey(this.pauseButtons[i],this.pauseButtons[i].state_selected);
 				else
-					desired = this.pauseButtons[i].state_neutral;
-				if (desired !== this.pauseButtons[i].material.map)
-				{
-					this.pauseButtons[i].material.map = desired;
-					this.pauseButtons[i].material.needsUpdate = true;
-				}
+					bmacSdk.GEO.setAtlasMeshKey(this.pauseButtons[i],this.pauseButtons[i].state_neutral);
 			}
 			
 			if (advance)
@@ -425,8 +407,7 @@ hud.recordWin = function(playerIndex)
 	{
 		var widget = this.widgets[playerIndex][this.record[playerIndex]];
 		widget.scale.set(this.ICO_SCALEMAX, this.ICO_SCALEMAX, 1);
-		widget.material.map = this.tex_win;
-		widget.material.needsUpdate = true;
+		bmacSdk.GEO.setAtlasMeshKey(widget,"ui_win");
 	}
 	
 	this.record[playerIndex]++;
@@ -462,12 +443,11 @@ hud.show = function(neededToWin)
 			if (this.widgets[d][i])
 			{
 				this.widgets[d][i].visible = true;
-				this.widgets[d][i].material.map = this.tex_nowin;
-				this.widgets[d][i].material.needsUpdate = true;
+				bmacSdk.GEO.setAtlasMeshKey(this.widgets[d][i],"ui_nowin");
 			}
 			else
 			{
-				this.widgets[d][i] = bmacSdk.GEO.makeSpriteMesh(this.tex_nowin, this.geo_win);
+				this.widgets[d][i] = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"ui_nowin",true);
 				this.root.add(this.widgets[d][i]);
 				this.widgets[d][i].position.set((d*2-1) * (36*i + 36), 0, 0);
 			}
@@ -517,32 +497,18 @@ hud.added = function()
 {
 	this.dom_announcement = document.getElementById("announcement");
 	
-	this.tex_win = THREE.ImageUtils.loadTexture("media/ui_win.png");
-	this.tex_nowin = THREE.ImageUtils.loadTexture("media/ui_nowin.png");
-	this.tex_divider = THREE.ImageUtils.loadTexture("media/ui_divider.png");
-	this.geo_win = bmacSdk.GEO.makeSpriteGeo(41, 41);
-	this.geo_divider = bmacSdk.GEO.makeSpriteGeo(22, 63);
-	
-	//Control/Lobby
-	this.tex_gamepad = THREE.ImageUtils.loadTexture("media/ctrl_gamepad.png");
-	this.tex_keyboard1 = THREE.ImageUtils.loadTexture("media/ctrl_keyboard1.png");
-	this.tex_keyboard2 = THREE.ImageUtils.loadTexture("media/ctrl_keyboard2.png");
-	this.tex_ready = THREE.ImageUtils.loadTexture("media/ready.png");
-	this.geo_ctrl = bmacSdk.GEO.makeSpriteGeo(91, 58);
-	this.geo_ready = bmacSdk.GEO.makeSpriteGeo(96, 27);
-	
 	this.controlui = [];
 	for (var i = 0; i < 2; i++)
 	{
 		var obj = new THREE.Object3D();
 		GameEngine.scene.add(obj);
 		obj.position.set(GameEngine.screenWidth / 4 + i*(GameEngine.screenWidth/2), 350, -15);
-		obj.keyboard = bmacSdk.GEO.makeSpriteMesh(this['tex_keyboard'+(i+1)], this.geo_ctrl);
+		obj.keyboard = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"ctrl_keyboard"+(i+1));
 		obj.add(obj.keyboard);
-		obj.gamepad = bmacSdk.GEO.makeSpriteMesh(this.tex_gamepad, this.geo_ctrl);
+		obj.gamepad = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"ctrl_gamepad");
 		obj.gamepad.position.set(0, 90, 0);
 		obj.add(obj.gamepad);
-		obj.ready = bmacSdk.GEO.makeSpriteMesh(this.tex_ready, this.geo_ready);
+		obj.ready = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"ready");
 		obj.ready.position.set(-100 * (i*2-1), 0, 1);
 		obj.add(obj.ready);
 		this.controlui[i] = obj;
@@ -553,7 +519,7 @@ hud.added = function()
 	this.root.position.set(GameEngine.screenWidth/2, 40, this.DEPTH);
 	GameEngine.scene.add(this.root);
 	
-	this.divider = bmacSdk.GEO.makeSpriteMesh(this.tex_divider, this.geo_divider);
+	this.divider = bmacSdk.GEO.makeAtlasMesh(thegame.atlas,"ui_divider");
 	this.root.add(this.divider);
 	
 	this.widgets = [[],[]];
